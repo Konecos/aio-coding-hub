@@ -14,6 +14,9 @@ use std::time::{Duration, Instant};
 
 pub(super) struct RequestContext<R: tauri::Runtime = tauri::Wry> {
     pub(super) state: GatewayAppState<R>,
+    pub(super) ws_request: Option<crate::gateway::responses_ws::state::RequestState>,
+    pub(super) ws_connection: Option<Arc<crate::gateway::responses_ws::state::Connection>>,
+
     pub(super) cli_key: String,
     pub(super) forwarded_path: String,
     pub(super) observe_request: bool,
@@ -76,6 +79,8 @@ impl<R: tauri::Runtime> RequestContext<R> {
     ) -> Self {
         let RequestContextParts {
             state,
+            ws_request,
+            ws_connection,
             cli_key,
             forwarded_path,
             observe_request,
@@ -139,6 +144,8 @@ impl<R: tauri::Runtime> RequestContext<R> {
 
         Self {
             state,
+            ws_request,
+            ws_connection,
             cli_key,
             forwarded_path,
             observe_request,
@@ -253,6 +260,9 @@ pub(super) fn effective_first_byte_timeout_secs(
 
 pub(super) struct RequestContextParts<R: tauri::Runtime = tauri::Wry> {
     pub(super) state: GatewayAppState<R>,
+    pub(super) ws_request: Option<crate::gateway::responses_ws::state::RequestState>,
+    pub(super) ws_connection: Option<Arc<crate::gateway::responses_ws::state::Connection>>,
+
     pub(super) cli_key: String,
     pub(super) forwarded_path: String,
     pub(super) observe_request: bool,

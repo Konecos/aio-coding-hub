@@ -100,6 +100,7 @@ function createProviderSummary(overrides: Partial<ProviderSummary> = {}): Provid
     model_policy_status: "ready",
     model_policy: { version: 1, mode: "all", modelPatterns: [], mappings: [] },
     stream_idle_timeout_seconds: null,
+    supports_websockets: false,
     extension_values: [],
     api_key_configured: false,
     ...overrides,
@@ -254,6 +255,30 @@ describe("services/providers/providers", () => {
       })
     );
   });
+
+  it.each([undefined, null, false, true])(
+    "preserves optional WebSocket capability %s in IPC",
+    async (supportsWebsockets) => {
+      vi.mocked(commands.providerUpsert).mockResolvedValueOnce({
+        status: "ok",
+        data: createProviderSummary({ cli_key: "codex" }),
+      });
+      await providerUpsert({
+        cliKey: "codex",
+        name: "ws",
+        baseUrls: ["https://example.com"],
+        baseUrlMode: "order",
+        enabled: true,
+        costMultiplier: 1,
+        supportsWebsockets,
+      });
+      expect(commands.providerUpsert).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          supportsWebsockets: supportsWebsockets ?? null,
+        })
+      );
+    }
+  );
 
   it("passes explicit empty provider extension values in upsert payload", async () => {
     vi.mocked(commands.providerUpsert).mockClear();

@@ -439,6 +439,7 @@ fn default_provider_params(name: &str) -> ProviderUpsertParams {
         source_provider_id: None,
         bridge_type: None,
         stream_idle_timeout_seconds: None,
+        supports_websockets: None,
         extension_values: None,
     }
 }
@@ -578,6 +579,7 @@ fn provider_duplicate_copies_extension_values() {
             source_provider_id: source_summary.source_provider_id,
             bridge_type: source_summary.bridge_type.clone(),
             stream_idle_timeout_seconds: source_summary.stream_idle_timeout_seconds,
+            supports_websockets: Some(source_summary.supports_websockets),
             extension_values: None,
         },
     )
@@ -930,6 +932,7 @@ fn create_oauth_provider_for_cas_test(db: &crate::db::Db, name: &str) -> i64 {
             source_provider_id: None,
             bridge_type: None,
             stream_idle_timeout_seconds: None,
+            supports_websockets: None,
             extension_values: None,
         },
     )
@@ -1178,4 +1181,114 @@ fn update_oauth_tokens_cas_allows_initial_null_then_blocks_repeat_null() {
     let after = get_oauth_details(&db, provider_id).expect("get oauth details after null cas");
     assert_eq!(after.oauth_access_token, "null_first_access");
     assert!(after.oauth_last_refreshed_at.is_some());
+}
+
+#[test]
+fn supports_websockets_round_trips_all_provider_queries_and_updates() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db = crate::db::init_for_tests(&dir.path().join("provider-ws.db")).expect("init db");
+    let mut input = default_provider_params("ws-provider");
+    input.cli_key = "codex".to_string();
+    let created = upsert(&db, input.clone()).expect("create default");
+    assert!(!created.supports_websockets);
+
+    input.provider_id = Some(created.id);
+    input.supports_websockets = Some(true);
+    let saved = upsert(&db, input.clone()).expect("enable ws");
+    assert!(saved.supports_websockets);
+    input.supports_websockets = None;
+    assert!(
+        upsert(&db, input.clone())
+            .expect("legacy edit")
+            .supports_websockets
+    );
+    assert!(list_by_cli(&db, "codex").expect("list")[0].supports_websockets);
+    default_route_set_order(&db, "codex", vec![saved.id]).expect("set route");
+    assert!(
+        list_enabled_for_gateway_in_mode(&db, "codex", None).expect("default route")[0]
+            .supports_websockets
+    );
+    assert!(
+        list_enabled_for_gateway_using_active_mode(&db, "codex")
+            .expect("active route")
+            .providers[0]
+            .supports_websockets
+    );
+    let mode = crate::sort_modes::create_mode(&db, "WS template").expect("create template");
+    crate::sort_modes::set_mode_providers_order(&db, mode.id, "codex", vec![saved.id])
+        .expect("set template route");
+    assert!(
+        list_enabled_for_gateway_in_mode(&db, "codex", Some(mode.id)).expect("template route")[0]
+            .supports_websockets
+    );
+    assert!(
+        get_source_provider_for_gateway(&db, saved.id)
+            .expect("source provider")
+            .0
+            .supports_websockets
+    );
+
+    let mut copy = input.clone();
+    copy.provider_id = None;
+    copy.name = "ws-copy".to_string();
+    copy.supports_websockets = Some(saved.supports_websockets);
+    assert!(
+        duplicate(&db, saved.id, copy)
+            .expect("duplicate")
+            .supports_websockets
+    );
+    input.supports_websockets = Some(false);
+    assert!(!upsert(&db, input).expect("disable ws").supports_websockets);
+}
+
+#[test]
+fn supports_websockets_rejects_non_codex_and_bridge_writes() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db =
+        crate::db::init_for_tests(&dir.path().join("provider-ws-invalid.db")).expect("init db");
+    for cli_key in ["claude", "gemini", "grok"] {
+        let mut input = default_provider_params(cli_key);
+        input.cli_key = cli_key.to_string();
+        input.supports_websockets = Some(true);
+        assert!(upsert(&db, input)
+            .expect_err("non-codex ws")
+            .to_string()
+            .contains("supports_websockets"));
+        assert!(list_by_cli(&db, cli_key).expect("list").is_empty());
+    }
+    let mut source_input = default_provider_params("source");
+    source_input.cli_key = "codex".to_string();
+    source_input.supports_websockets = Some(true);
+    let source = upsert(&db, source_input).expect("create source");
+    let mut bridge = default_provider_params("bridge");
+    bridge.source_provider_id = Some(source.id);
+    bridge.bridge_type = Some(CX2CC_BRIDGE_TYPE.to_string());
+    bridge.supports_websockets = Some(true);
+    assert!(upsert(&db, bridge.clone())
+        .expect_err("bridge ws")
+        .to_string()
+        .contains("supports_websockets"));
+    bridge.supports_websockets = Some(false);
+    let saved = upsert(&db, bridge.clone()).expect("HTTP bridge");
+    assert!(!saved.supports_websockets);
+    bridge.provider_id = Some(saved.id);
+    // Even an older caller omitting the capability cannot preserve an invalid stored combination.
+    db.open_connection()
+        .expect("connection")
+        .execute(
+            "UPDATE providers SET supports_websockets = 1 WHERE id = ?1",
+            [saved.id],
+        )
+        .expect("simulate invalid stored capability");
+    bridge.supports_websockets = None;
+    assert!(upsert(&db, bridge.clone())
+        .expect_err("merged invalid capability")
+        .to_string()
+        .contains("supports_websockets"));
+    bridge.supports_websockets = Some(false);
+    assert!(
+        !upsert(&db, bridge)
+            .expect("explicitly clear capability")
+            .supports_websockets
+    );
 }

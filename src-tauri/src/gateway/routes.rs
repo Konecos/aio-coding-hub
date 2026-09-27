@@ -8,7 +8,7 @@ use axum::{
 };
 use serde::Serialize;
 
-use super::proxy::proxy_impl;
+use super::responses_ws::ingress::dispatch as proxy_impl;
 use super::runtime::GatewayAppState;
 use super::util::now_unix_seconds;
 
@@ -766,6 +766,7 @@ mod tests {
                 source_provider_id: None,
                 bridge_type: None,
                 stream_idle_timeout_seconds: None,
+                supports_websockets: None,
                 extension_values: None,
             },
         )
@@ -850,6 +851,7 @@ mod tests {
                 source_provider_id: None,
                 bridge_type: None,
                 stream_idle_timeout_seconds: None,
+                supports_websockets: None,
                 extension_values: None,
             },
         )
@@ -896,6 +898,7 @@ mod tests {
                 source_provider_id: Some(source_provider_id),
                 bridge_type: Some("cx2cc".to_string()),
                 stream_idle_timeout_seconds: None,
+                supports_websockets: None,
                 extension_values: None,
             },
         )
@@ -958,6 +961,7 @@ mod tests {
             active_requests: Arc::new(
                 crate::gateway::active_requests::ActiveRequestRegistry::default(),
             ),
+            responses_ws: Arc::new(crate::gateway::responses_ws::state::Runtime::new(false)),
         }
     }
 
@@ -3871,6 +3875,7 @@ module.exports.activate = function activate(api) {
                 source_provider_id: None,
                 bridge_type: None,
                 stream_idle_timeout_seconds: None,
+                supports_websockets: None,
                 extension_values: None,
             },
         )

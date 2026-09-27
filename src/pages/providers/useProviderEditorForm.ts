@@ -240,6 +240,7 @@ export function useProviderEditorForm(props: ProviderEditorDialogProps) {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [streamIdleTimeoutSeconds, setStreamIdleTimeoutSeconds] = useState("");
+  const [supportsWebsockets, setSupportsWebsockets] = useState(false);
   const [saving, setSaving] = useState(false);
   const [copyingApiKey, setCopyingApiKey] = useState(false);
 
@@ -388,6 +389,7 @@ export function useProviderEditorForm(props: ProviderEditorDialogProps) {
       setEditorDirty(true);
       setAuthMode(next);
       if (next === "cx2cc") {
+        setSupportsWebsockets(false);
         setClaudeModels((prev) => withCx2ccDefaultModel(prev));
         setCostMultiplierValue(resolveCx2ccInheritedMultiplier(cx2ccSourceValue), {
           shouldDirty: true,
@@ -599,6 +601,11 @@ export function useProviderEditorForm(props: ProviderEditorDialogProps) {
     setStreamIdleTimeoutSeconds(next);
   }, []);
 
+  const setSupportsWebsocketsFromUi = useCallback((next: boolean) => {
+    setEditorDirty(true);
+    setSupportsWebsockets(next);
+  }, []);
+
   useProviderEditorEffects({
     open,
     mode,
@@ -622,6 +629,7 @@ export function useProviderEditorForm(props: ProviderEditorDialogProps) {
     setTags,
     setTagInput,
     setStreamIdleTimeoutSeconds,
+    setSupportsWebsockets,
     setAuthMode,
     setCx2ccSourceValue,
     setOauthStatus,
@@ -722,6 +730,7 @@ export function useProviderEditorForm(props: ProviderEditorDialogProps) {
       modelPolicyStatus,
       modelPolicy,
       streamIdleTimeoutSeconds,
+      supportsWebsockets,
       apiKeyConfigured,
       isCodexGatewaySource,
       sourceProviderId,
@@ -745,6 +754,7 @@ export function useProviderEditorForm(props: ProviderEditorDialogProps) {
       modelPolicyStatus,
       modelPolicy,
       streamIdleTimeoutSeconds,
+      supportsWebsockets,
       apiKeyConfigured,
       isCodexGatewaySource,
       sourceProviderId,
@@ -916,6 +926,8 @@ export function useProviderEditorForm(props: ProviderEditorDialogProps) {
     claudeModelCount,
     streamIdleTimeoutSeconds,
     setStreamIdleTimeoutSeconds: setStreamIdleTimeoutSecondsFromUi,
+    supportsWebsockets,
+    setSupportsWebsockets: setSupportsWebsocketsFromUi,
     oauthStatus,
     oauthLoading,
     oauthDeviceFlow,

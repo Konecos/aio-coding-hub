@@ -97,6 +97,22 @@ export function ProviderEditorDialog(props: ProviderEditorDialogProps) {
           disabled={f.saving}
         />
 
+        {f.cliKey === "codex" && f.authMode !== "cx2cc" ? (
+          <FormField
+            label="支持 Responses WebSocket"
+            hint="声明此供应商支持 WS；需同时开启 Codex WS 模式。"
+          >
+            {(id) => (
+              <Switch
+                id={id}
+                checked={f.supportsWebsockets}
+                onCheckedChange={f.setSupportsWebsockets}
+                disabled={f.saving}
+              />
+            )}
+          </FormField>
+        ) : null}
+
         <FormField
           label="流式空闲超时覆盖（秒）"
           hint="留空或 0 表示沿用全局设置；仅对当前 Provider 的流式请求生效。"

@@ -114,6 +114,7 @@ function makeProvider(partial: Partial<ProviderSummary> = {}): ProviderSummary {
     },
     api_key_configured: partial.api_key_configured ?? false,
     stream_idle_timeout_seconds: partial.stream_idle_timeout_seconds ?? null,
+    supports_websockets: partial.supports_websockets ?? false,
     extension_values: partial.extension_values ?? [],
   };
 }
@@ -153,6 +154,7 @@ function makeCtx(overrides: Partial<OAuthActionContext> = {}) {
     modelPolicyStatus: "ready",
     modelPolicy: { version: 1, mode: "all", modelPatterns: [], mappings: [] },
     streamIdleTimeoutSeconds: "",
+    supportsWebsockets: false,
     apiKeyConfigured: false,
     isCodexGatewaySource: false,
     sourceProviderId: null,

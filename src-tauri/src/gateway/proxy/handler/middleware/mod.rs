@@ -61,6 +61,9 @@ pub(super) enum MiddlewareAction<R: tauri::Runtime = tauri::Wry> {
 pub(super) struct ProxyContext<R: tauri::Runtime = tauri::Wry> {
     // -- immutable request metadata (set at construction) --
     pub(super) state: GatewayAppState<R>,
+    pub(super) ws_request: Option<crate::gateway::responses_ws::state::RequestState>,
+    pub(super) ws_connection: Option<Arc<crate::gateway::responses_ws::state::Connection>>,
+
     pub(super) cli_key: String,
     pub(super) forwarded_path: String,
     pub(super) req_method: Method,
@@ -125,6 +128,8 @@ impl<R: tauri::Runtime> ProxyContext<R> {
 
         RequestContextParts {
             state: self.state,
+            ws_request: self.ws_request,
+            ws_connection: self.ws_connection,
             cli_key: self.cli_key,
             forwarded_path: self.forwarded_path,
             observe_request: self.observe_request,

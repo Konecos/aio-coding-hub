@@ -27,7 +27,7 @@ pub use queries::{
     list_by_cli, names_by_id, reorder, upsert,
 };
 
-pub(crate) use validation::normalize_base_urls;
+pub(crate) use validation::{normalize_base_urls, validate_supports_websockets};
 
 pub(crate) use queries::{
     active_sort_mode_id_for_gateway, claude_terminal_launch_context, clear_oauth, cli_key_by_id,

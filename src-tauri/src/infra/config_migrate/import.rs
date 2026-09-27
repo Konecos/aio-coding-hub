@@ -42,6 +42,7 @@ pub(super) fn import_into_transaction(
 
     for provider in providers {
         let ProviderExport {
+            supports_websockets,
             id,
             cli_key,
             name,
@@ -83,6 +84,13 @@ pub(super) fn import_into_transaction(
             source_provider_cli_key,
             bridge_type,
         } = provider;
+
+        crate::providers::validate_supports_websockets(
+            &cli_key,
+            source_provider_id.is_some() || source_provider_cli_key.is_some(),
+            bridge_type.as_deref(),
+            supports_websockets,
+        )?;
 
         let sort_order = provider_sort_order_by_cli_key
             .entry(cli_key.clone())
@@ -139,9 +147,10 @@ INSERT INTO providers(
   oauth_last_error,
   source_provider_id,
   bridge_type,
+  supports_websockets,
   created_at,
   updated_at
-) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, NULL, ?37, ?38, ?38)
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, NULL, ?37, ?38, ?39, ?39)
 "#,
             params![
                 cli_key,
@@ -181,6 +190,7 @@ INSERT INTO providers(
                 oauth_last_refreshed_at,
                 oauth_last_error,
                 bridge_type,
+                bool_to_int(supports_websockets),
                 now,
             ],
         )
@@ -274,6 +284,7 @@ INSERT INTO providers(
         skill_repos_imported,
         installed_skills_imported,
         local_skills_imported,
+        warnings: Vec::new(),
     })
 }
 

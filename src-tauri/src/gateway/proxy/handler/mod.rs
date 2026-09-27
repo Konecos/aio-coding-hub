@@ -25,7 +25,7 @@ use axum::{
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-mod early_error;
+pub(in crate::gateway) mod early_error;
 mod middleware;
 mod provider_order;
 mod provider_selection;
@@ -147,6 +147,14 @@ where
     R: tauri::Runtime + 'static,
     R::Handle: Unpin,
 {
+    let ws_request = req
+        .extensions()
+        .get::<crate::gateway::responses_ws::state::RequestState>()
+        .cloned();
+    let ws_connection = req
+        .extensions()
+        .get::<Arc<crate::gateway::responses_ws::state::Connection>>()
+        .cloned();
     let started = Instant::now();
     let trace_id = new_trace_id();
     let created_at_ms = now_unix_millis() as i64;
@@ -168,6 +176,8 @@ where
     // Build the initial context.
     let ctx = ProxyContext {
         state,
+        ws_request,
+        ws_connection,
         cli_key,
         forwarded_path,
         req_method: method,
@@ -289,6 +299,17 @@ where
         MiddlewareAction::ShortCircuit(resp) => return resp,
     };
 
+    let mut ctx = ctx;
+    if ctx.ws_connection.is_some()
+        && ctx
+            .introspection_json
+            .as_ref()
+            .is_some_and(|body| body.get("generate") == Some(&serde_json::Value::Bool(false)))
+    {
+        ctx.observe_request = false;
+        ctx.provider_health_neutral = true;
+    }
+
     // --- Post-chain: emit start event, seed in-progress log, then forward ---
     // 顺序契约：先武装 abort guard，再登记活跃注册表，之后才允许出现 await。
     // guard 未武装时登记后被取消（future 被丢弃）会让注册表条目永久泄漏，
@@ -324,7 +345,7 @@ where
             },
             redacted_headers_for_debug(&ctx.headers),
             ctx.body_bytes.len(),
-            lossy_utf8_preview(&ctx.body_bytes, MAX_DEBUG_BODY_PREVIEW_BYTES),
+            if ctx.ws_request.is_some() || ctx.ws_connection.is_some() { "[managed Responses body omitted]".to_owned() } else { lossy_utf8_preview(&ctx.body_bytes, MAX_DEBUG_BODY_PREVIEW_BYTES) },
         )
     });
 
@@ -402,6 +423,7 @@ mod tests {
             source_provider_id: None,
             bridge_type: None,
             stream_idle_timeout_seconds: None,
+            supports_websockets: false,
             extension_values: vec![],
         }
     }
@@ -431,6 +453,7 @@ mod tests {
             latency_cache: Arc::new(Mutex::new(ProviderBaseUrlPingCache::default())),
             plugin_pipeline: GatewayPluginPipeline::empty_shared(),
             active_requests,
+            responses_ws: Arc::new(crate::gateway::responses_ws::state::Runtime::new(false)),
         }
     }
 
@@ -443,6 +466,8 @@ mod tests {
         let (log_tx, _log_rx) = tokio::sync::mpsc::channel(1);
         let active_requests = Arc::new(ActiveRequestRegistry::default());
         let ctx = middleware::ProxyContext {
+            ws_request: None,
+            ws_connection: None,
             state: active_request_test_state(
                 app.handle().clone(),
                 db,
@@ -506,6 +531,8 @@ mod tests {
         let (log_tx, _log_rx) = tokio::sync::mpsc::channel(1);
         let active_requests = Arc::new(ActiveRequestRegistry::default());
         let mut ctx = middleware::ProxyContext {
+            ws_request: None,
+            ws_connection: None,
             state: active_request_test_state(
                 app.handle().clone(),
                 db,
@@ -565,6 +592,8 @@ mod tests {
         trace_id: &str,
     ) -> middleware::ProxyContext<tauri::test::MockRuntime> {
         middleware::ProxyContext {
+            ws_request: None,
+            ws_connection: None,
             state: active_request_test_state(app, db, log_tx, active_requests),
             cli_key: "claude".to_string(),
             forwarded_path: "/v1/messages".to_string(),

@@ -296,6 +296,7 @@ fn is_sensitive_header_name(name: &str) -> bool {
             | "x-xsrf-token"
             | "access-token"
             | "refresh-token"
+            | "x-codex-turn-state"
     ) || name.contains("api-key")
         || name.contains("apikey")
         || name.contains("token")

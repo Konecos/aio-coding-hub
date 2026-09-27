@@ -2681,6 +2681,12 @@ export type CodexModelCatalogState = {
 };
 export type CodexModelCatalogStatus = "ready" | "degraded" | "unavailable";
 export type CodexPriorityBillingSource = "requested" | "actual";
+export type CodexProxySyncStatus =
+  | "not_requested"
+  | "not_managed"
+  | "deferred"
+  | "synced"
+  | "failed";
 export type CodexReasoningEffortOption = { reasoning_effort: string; description: string | null };
 export type CodexSessionIdCompletionUpdate = { enableCodexSessionIdCompletion: boolean };
 export type CommandContribution = { command: string; title: string; category?: string | null };
@@ -2693,6 +2699,7 @@ export type ConfigImportResult = {
   skill_repos_imported: number;
   installed_skills_imported: number;
   local_skills_imported: number;
+  warnings?: string[];
 };
 export type DailyResetMode = "fixed" | "rolling";
 export type DbCompactResult = { before_bytes: number; after_bytes: number };
@@ -2894,6 +2901,7 @@ export type GatewayRequestEvent = {
   claude_model_mapping: ClaudeModelMapping | null;
   model_redirect: ModelRedirect | null;
   reasoning_effort: string | null;
+  terminal_signal?: string | null;
 };
 export type GatewayRequestSignalEvent = {
   trace_id: string;
@@ -3771,6 +3779,7 @@ export type ProviderSummary = {
   source_provider_id: number | null;
   bridge_type: string | null;
   stream_idle_timeout_seconds: number | null;
+  supports_websockets: boolean;
   extension_values: ProviderExtensionValues[];
   api_key_configured: boolean;
 };
@@ -3799,6 +3808,7 @@ export type ProviderUpsertInput = {
   sourceProviderId: number | null;
   bridgeType: string | null;
   streamIdleTimeoutSeconds: number | null;
+  supportsWebsockets: boolean | null;
   extensionValues: ProviderExtensionValuesInput[] | null;
 };
 export type RequestAttemptLog = {
@@ -3921,6 +3931,7 @@ export type SettingsMutationResult = { settings: SettingsView; runtime: Settings
 export type SettingsMutationRuntime = {
   gateway_rebound: boolean;
   cli_proxy_synced: boolean;
+  codex_proxy_sync: CodexProxySyncStatus;
   wsl_auto_sync_triggered: boolean;
   gateway_status: GatewayStatus;
 };
@@ -3976,6 +3987,7 @@ export type SettingsUpdate = {
   codexHomeMode: CodexHomeMode | null;
   codexHomeOverride: string | null;
   codexOauthCompatibleProxyMode: boolean | null;
+  codexResponsesWebsocketEnabled: boolean | null;
   cx2CcFallbackModelOpus: string | null;
   cx2CcFallbackModelSonnet: string | null;
   cx2CcFallbackModelHaiku: string | null;
@@ -4008,6 +4020,7 @@ export type SettingsView = {
   codex_home_mode: CodexHomeMode;
   codex_home_override: string;
   codex_oauth_compatible_proxy_mode: boolean;
+  codex_responses_websocket_enabled: boolean;
   auto_start: boolean;
   start_minimized: boolean;
   tray_enabled: boolean;

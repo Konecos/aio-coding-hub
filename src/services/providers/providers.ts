@@ -123,6 +123,7 @@ type ProviderUpsertFieldMap = {
   sourceProviderId: "sourceProviderId";
   bridgeType: "bridgeType";
   streamIdleTimeoutSeconds: "streamIdleTimeoutSeconds";
+  supportsWebsockets: "supportsWebsockets";
   extensionValues: "extensionValues";
 };
 
@@ -213,6 +214,7 @@ function toProviderUpsertPayload(input: ProviderUpsertInput): ProviderUpsertTran
     note: input.note ?? null,
     sourceProviderId,
     bridgeType: input.bridgeType ?? null,
+    supportsWebsockets: input.supportsWebsockets ?? null,
     extensionValues: input.extensionValues ?? null,
   } satisfies Omit<GeneratedProviderUpsertInput, "streamIdleTimeoutSeconds">;
 

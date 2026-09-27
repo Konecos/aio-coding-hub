@@ -1831,3 +1831,39 @@ PRAGMA user_version = 33;
 
     apply_migrations(&mut conn).expect("apply migrations twice");
 }
+
+#[test]
+fn ensure_supports_websockets_defaults_old_rows_and_preserves_true() {
+    let mut conn = Connection::open_in_memory().expect("open sqlite");
+    apply_migrations(&mut conn).expect("fresh schema");
+    assert!(test_has_column(&conn, "providers", "supports_websockets"));
+    conn.execute_batch(
+        "ALTER TABLE providers DROP COLUMN supports_websockets;
+         INSERT INTO providers(cli_key, name, base_url, api_key_plaintext, created_at, updated_at)
+         VALUES ('codex', 'legacy-ws', 'https://example.com', 'test-key', 1, 1);",
+    )
+    .expect("legacy schema without capability");
+    apply_migrations(&mut conn).expect("ensure capability");
+    let capability: bool = conn
+        .query_row(
+            "SELECT supports_websockets FROM providers WHERE name = 'legacy-ws'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("legacy default");
+    assert!(!capability);
+    conn.execute(
+        "UPDATE providers SET supports_websockets = 1 WHERE name = 'legacy-ws'",
+        [],
+    )
+    .expect("enable capability");
+    apply_migrations(&mut conn).expect("repeat ensure");
+    let capability: bool = conn
+        .query_row(
+            "SELECT supports_websockets FROM providers WHERE name = 'legacy-ws'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("preserved capability");
+    assert!(capability);
+}

@@ -109,6 +109,7 @@ function makeProvider(partial: Partial<ProviderSummary> = {}): ProviderSummary {
     api_key_configured: partial.api_key_configured ?? false,
     ...partial,
     stream_idle_timeout_seconds: partial.stream_idle_timeout_seconds ?? null,
+    supports_websockets: partial.supports_websockets ?? false,
     extension_values: partial.extension_values ?? [],
   };
 }
@@ -138,6 +139,7 @@ function makeInitialValues(
     bridge_type: null,
     ...partial,
     stream_idle_timeout_seconds: partial.stream_idle_timeout_seconds ?? null,
+    supports_websockets: partial.supports_websockets ?? false,
   };
 }
 
@@ -370,6 +372,86 @@ describe("pages/providers/ProviderEditorDialog", () => {
     );
     expect(onSaved).not.toHaveBeenCalled();
     expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("defaults WebSocket capability off and guards unsaved changes", () => {
+    const onOpenChange = vi.fn();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const props = {
+      mode: "create" as const,
+      cliKey: "codex" as const,
+      onSaved: vi.fn(),
+      onOpenChange,
+    };
+    const view = render(<ProviderEditorDialog {...props} open={true} />);
+    const toggle = screen.getByRole("switch", { name: "支持 Responses WebSocket" });
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+    expect(toggle).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(confirmSpy).toHaveBeenCalledWith("有未保存的修改，确定关闭吗？");
+    expect(onOpenChange).not.toHaveBeenCalled();
+    view.rerender(<ProviderEditorDialog {...props} open={false} />);
+    view.rerender(<ProviderEditorDialog {...props} open={true} />);
+    expect(screen.getByRole("switch", { name: "支持 Responses WebSocket" })).not.toBeChecked();
+    confirmSpy.mockRestore();
+  });
+
+  it("loads and saves an explicit WebSocket capability change", async () => {
+    const provider = makeProvider({
+      cli_key: "codex",
+      api_key_configured: true,
+      supports_websockets: true,
+    });
+    vi.mocked(providerUpsert).mockResolvedValue({ ...provider, supports_websockets: false });
+    render(
+      <ProviderEditorDialog
+        mode="edit"
+        provider={provider}
+        open={true}
+        onSaved={vi.fn()}
+        onOpenChange={vi.fn()}
+      />
+    );
+    const toggle = screen.getByRole("switch", { name: "支持 Responses WebSocket" });
+    expect(toggle).toBeChecked();
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(providerUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({ supportsWebsockets: false })
+      )
+    );
+  });
+
+  it("loads WebSocket capability from duplicate initial values and hides it for Claude", () => {
+    const view = render(
+      <ProviderEditorDialog
+        mode="create"
+        cliKey="codex"
+        initialValues={makeInitialValues({ supports_websockets: true })}
+        open={true}
+        onSaved={vi.fn()}
+        onOpenChange={vi.fn()}
+      />
+    );
+    expect(screen.getByRole("switch", { name: "支持 Responses WebSocket" })).toBeChecked();
+    view.rerender(
+      <ProviderEditorDialog
+        mode="create"
+        cliKey="claude"
+        open={true}
+        onSaved={vi.fn()}
+        onOpenChange={vi.fn()}
+      />
+    );
+    expect(
+      screen.queryByRole("switch", { name: "支持 Responses WebSocket" })
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "CX2CC 转译" }));
+    expect(
+      screen.queryByRole("switch", { name: "支持 Responses WebSocket" })
+    ).not.toBeInTheDocument();
   });
 
   it("passes stream idle timeout override when saving", async () => {

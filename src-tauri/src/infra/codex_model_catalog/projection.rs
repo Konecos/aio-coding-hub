@@ -387,6 +387,7 @@ mod tests {
             source_provider_id: None,
             bridge_type: None,
             stream_idle_timeout_seconds: None,
+            supports_websockets: None,
             extension_values: None,
         }
     }

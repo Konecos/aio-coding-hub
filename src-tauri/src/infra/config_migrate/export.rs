@@ -85,7 +85,8 @@ SELECT
   tags_json,
   note,
   source_provider_id,
-  bridge_type
+  bridge_type,
+  supports_websockets
 FROM providers
 ORDER BY cli_key ASC, sort_order ASC, id ASC
 "#,
@@ -108,6 +109,7 @@ ORDER BY cli_key ASC, sort_order ASC, id ASC
 
             Ok((
                 ProviderExport {
+                    supports_websockets: row.get::<_, i64>("supports_websockets")? != 0,
                     id: row.get("id")?,
                     cli_key,
                     name: row.get("name")?,

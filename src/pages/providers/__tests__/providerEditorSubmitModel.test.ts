@@ -16,6 +16,7 @@ function makeContext(
     tags: [],
     claudeModels: {},
     streamIdleTimeoutSeconds: "",
+    supportsWebsockets: false,
     apiKeyConfigured: false,
     isCodexGatewaySource: false,
     sourceProviderId: null,
@@ -37,6 +38,28 @@ function makeContext(
 }
 
 describe("pages/providers/providerEditorSubmitModel", () => {
+  it.each([
+    ["codex", "api_key", true],
+    ["codex", "oauth", true],
+    ["claude", "api_key", false],
+    ["claude", "cx2cc", false],
+  ] as const)(
+    "only submits WS capability for native Codex: %s / %s",
+    (cliKey, authMode, expected) => {
+      const result = buildProviderEditorUpsertInput(
+        makeContext({
+          cliKey,
+          authMode,
+          supportsWebsockets: true,
+          isCodexGatewaySource: true,
+        })
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.payload.supportsWebsockets).toBe(expected);
+    }
+  );
+
   it("requires an api key when editing an api-key provider without a saved secret", () => {
     const result = buildProviderEditorUpsertInput(
       makeContext({

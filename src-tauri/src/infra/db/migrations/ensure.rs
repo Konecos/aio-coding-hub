@@ -23,6 +23,7 @@ pub(super) fn apply_ensure_patches(conn: &mut Connection) -> crate::shared::erro
     drop_legacy_request_attempt_logs_table(conn)?;
     ensure_request_logs_extended_columns(conn)?;
     ensure_provider_stream_idle_timeout(conn)?;
+    ensure_provider_supports_websockets(conn)?;
     ensure_skills_update_columns(conn)?;
     ensure_plugin_tables(conn)?;
     ensure_provider_extension_values_table(conn)?;
@@ -967,6 +968,26 @@ fn ensure_provider_stream_idle_timeout(conn: &mut Connection) -> Result<(), Stri
             "ALTER TABLE providers ADD COLUMN stream_idle_timeout_seconds INTEGER DEFAULT NULL;",
         )
         .map_err(|e| format!("failed to ensure providers.stream_idle_timeout_seconds: {e}"))?;
+    }
+    Ok(())
+}
+
+fn ensure_provider_supports_websockets(conn: &mut Connection) -> Result<(), String> {
+    let has_providers_table: bool = conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'providers' LIMIT 1",
+            [],
+            |_| Ok(true),
+        )
+        .optional()
+        .map_err(|e| format!("failed to query sqlite_master: {e}"))?
+        .unwrap_or(false);
+
+    if has_providers_table && !column_exists(conn, "providers", "supports_websockets")? {
+        conn.execute_batch(
+            "ALTER TABLE providers ADD COLUMN supports_websockets INTEGER NOT NULL DEFAULT 0;",
+        )
+        .map_err(|e| format!("failed to ensure providers.supports_websockets: {e}"))?;
     }
     Ok(())
 }

@@ -120,10 +120,16 @@ vi.mock("../../components/cli-manager/tabs/CodexTab", () => ({
     persistCodexConfig,
     persistCodexConfigToml,
     persistCodexHomeSettings,
+    persistCodexResponsesWebsocket,
+    codexResponsesWebsocketStatus,
     pickCodexHomeDirectory,
   }: any) => (
     <div>
       <div>codex-tab</div>
+      <div role="status">{codexResponsesWebsocketStatus}</div>
+      <button type="button" onClick={() => persistCodexResponsesWebsocket?.(true)}>
+        save-codex-websocket
+      </button>
       <button type="button" onClick={() => refreshCodex()}>
         refresh-codex
       </button>
@@ -241,6 +247,7 @@ function createSettingsMutationResult(
     runtime: {
       gateway_rebound: false,
       cli_proxy_synced: false,
+      codex_proxy_sync: "not_requested",
       wsl_auto_sync_triggered: false,
       gateway_status: {
         running: false,
@@ -347,6 +354,60 @@ beforeEach(() => {
 });
 
 describe("pages/CliManagerPage", () => {
+  it.each([
+    ["not_managed", "接管 Codex 后生效"],
+    ["deferred", "启动网关并接管后生效"],
+    ["synced", "同步本机 Codex 配置"],
+    ["failed", "本机 Codex 配置同步失败"],
+  ] as const)(
+    "reports Codex WebSocket sync state %s without claiming WSL completion",
+    async (sync, expected) => {
+      const result = createSettingsMutationResult({ codex_responses_websocket_enabled: true });
+      result.runtime.codex_proxy_sync = sync;
+      result.runtime.wsl_auto_sync_triggered = true;
+      const mutateAsync = vi.fn().mockResolvedValue(result);
+      vi.mocked(useSettingsPatchMutation).mockReturnValue({
+        isPending: false,
+        mutateAsync,
+      } as never);
+      vi.mocked(useCliManagerCodexConfigQuery).mockReturnValue({
+        data: null,
+        isFetching: false,
+        refetch: vi.fn().mockResolvedValue({ data: null }),
+      } as never);
+      vi.mocked(useCliManagerCodexInfoQuery).mockReturnValue({
+        data: null,
+        isFetching: false,
+        refetch: vi.fn().mockResolvedValue({ data: null }),
+      } as never);
+
+      renderWithProviders(<CliManagerPage />);
+      fireEvent.click(screen.getByRole("tab", { name: "Codex" }));
+      fireEvent.click(await screen.findByRole("button", { name: "save-codex-websocket" }));
+      await waitFor(() =>
+        expect(mutateAsync).toHaveBeenCalledWith({
+          codex_responses_websocket_enabled: true,
+          upstream_proxy_password: { mode: "preserve" },
+        })
+      );
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(expected));
+      expect(screen.getByRole("status")).toHaveTextContent("WSL 同步已触发");
+      expect(screen.getByRole("status")).not.toHaveTextContent("WSL 已同步");
+    }
+  );
+
+  it("reports a failed WebSocket setting save without a success notification", async () => {
+    vi.mocked(useSettingsPatchMutation).mockReturnValue({
+      isPending: false,
+      mutateAsync: vi.fn().mockRejectedValue(new Error("settings write failed")),
+    } as never);
+    renderWithProviders(<CliManagerPage />);
+    fireEvent.click(screen.getByRole("tab", { name: "Codex" }));
+    fireEvent.click(await screen.findByRole("button", { name: "save-codex-websocket" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("失败"));
+    expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("已保存"));
+  });
+
   it("以独立数据模型延迟编排 Grok Tab", async () => {
     renderWithProviders(<CliManagerPage />);
 

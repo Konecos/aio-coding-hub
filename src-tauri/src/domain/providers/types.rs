@@ -86,6 +86,7 @@ pub struct ProviderUpsertParams {
     pub source_provider_id: Option<i64>,
     pub bridge_type: Option<String>,
     pub stream_idle_timeout_seconds: Option<u32>,
+    pub supports_websockets: Option<bool>,
     pub extension_values: Option<Vec<ProviderExtensionValuesInput>>,
 }
 
@@ -249,6 +250,7 @@ pub struct ProviderSummary {
     pub source_provider_id: Option<i64>,
     pub bridge_type: Option<String>,
     pub stream_idle_timeout_seconds: Option<u32>,
+    pub supports_websockets: bool,
     pub extension_values: Vec<ProviderExtensionValues>,
     pub api_key_configured: bool,
 }
@@ -281,6 +283,7 @@ pub(crate) struct ProviderForGateway {
     #[allow(dead_code)] // Will be read when failover_loop uses bridge_type for dispatch.
     pub bridge_type: Option<String>,
     pub stream_idle_timeout_seconds: Option<u32>,
+    pub supports_websockets: bool,
     pub extension_values: Vec<ProviderExtensionValues>,
 }
 
@@ -313,6 +316,7 @@ impl ProviderForGateway {
 
 #[derive(Debug, Clone)]
 pub(super) struct DecodedProviderRow {
+    pub supports_websockets: bool,
     pub id: i64,
     pub name: String,
     pub base_urls: Vec<String>,

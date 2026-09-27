@@ -97,6 +97,7 @@ export const handlers = [
       runtime: {
         gateway_rebound: false,
         cli_proxy_synced: false,
+        codex_proxy_sync: "not_requested",
         wsl_auto_sync_triggered: false,
         gateway_status: getGatewayStatusState(),
       },
@@ -206,6 +207,10 @@ export const handlers = [
       return HttpResponse.json({ error: "invalid provider_upsert payload" }, { status: 400 });
     }
 
+    if (input.supportsWebsockets != null && typeof input.supportsWebsockets !== "boolean") {
+      return HttpResponse.json({ error: "invalid supportsWebsockets" }, { status: 400 });
+    }
+
     const current = getProvidersState(cliKey);
     const requestedId = typeof input.providerId === "number" ? input.providerId : null;
     const existing =
@@ -270,6 +275,10 @@ export const handlers = [
           : typeof input.apiKey === "string"
             ? input.apiKey.trim().length > 0
             : (existing?.api_key_configured ?? false),
+      supports_websockets:
+        typeof input.supportsWebsockets === "boolean"
+          ? input.supportsWebsockets
+          : (existing?.supports_websockets ?? false),
       stream_idle_timeout_seconds:
         typeof input.streamIdleTimeoutSeconds === "number"
           ? input.streamIdleTimeoutSeconds > 0
