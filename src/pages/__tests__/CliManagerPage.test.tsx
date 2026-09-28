@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +9,7 @@ import type { AppSettings, SettingsMutationResult } from "../../services/setting
 import { createTestAppSettings } from "../../test/fixtures/settings";
 import { createTestQueryClient } from "../../test/utils/reactQuery";
 import { CliManagerPage } from "../CliManagerPage";
+import { useCliManagerPageDataModel } from "../cli-manager/useCliManagerPageDataModel";
 import { logToConsole } from "../../services/consoleLog";
 import {
   useSettingsCircuitBreakerNoticeSetMutation,
@@ -354,6 +355,55 @@ beforeEach(() => {
 });
 
 describe("pages/CliManagerPage", () => {
+  it("keeps the saved Billing Header setting and rolls back a failed update", async () => {
+    let resolveSave!: (settings: AppSettings) => void;
+    const save = new Promise<AppSettings>((resolve) => {
+      resolveSave = resolve;
+    });
+    const mutateAsync = vi
+      .fn()
+      .mockReturnValueOnce(save)
+      .mockRejectedValueOnce(new Error("settings write failed"));
+    vi.mocked(useSettingsGatewayRectifierSetMutation).mockReturnValue({
+      isPending: false,
+      mutateAsync,
+    } as never);
+    const client = createTestQueryClient();
+    const { result } = renderHook(() => useCliManagerPageDataModel(), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+    const initialRectifier = result.current.generalTabProps.rectifier;
+    expect(initialRectifier.enable_billing_header_rectifier).toBe(true);
+
+    let pendingSave!: Promise<void>;
+    act(() => {
+      pendingSave = result.current.generalTabProps.onPersistRectifier({
+        enable_billing_header_rectifier: false,
+      });
+    });
+    expect(result.current.generalTabProps.rectifier.enable_billing_header_rectifier).toBe(false);
+    expect(mutateAsync).toHaveBeenNthCalledWith(1, {
+      ...initialRectifier,
+      enable_billing_header_rectifier: false,
+    });
+    await act(async () => {
+      resolveSave(createAppSettings({ enable_billing_header_rectifier: false }));
+      await pendingSave;
+    });
+    expect(result.current.generalTabProps.rectifier.enable_billing_header_rectifier).toBe(false);
+
+    await act(async () => {
+      await result.current.generalTabProps.onPersistRectifier({
+        enable_billing_header_rectifier: true,
+      });
+    });
+    expect(mutateAsync).toHaveBeenNthCalledWith(2, initialRectifier);
+    expect(result.current.generalTabProps.rectifier.enable_billing_header_rectifier).toBe(false);
+    expect(toast).toHaveBeenCalledWith("更新网关整流配置失败：请稍后重试");
+  });
+
   it.each([
     ["not_managed", "接管 Codex 后生效"],
     ["deferred", "启动网关并接管后生效"],

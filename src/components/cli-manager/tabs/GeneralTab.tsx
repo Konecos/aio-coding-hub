@@ -229,7 +229,7 @@ function GatewayRectifierSettingsSection({
         </SettingsRow>
         <SettingsRow
           label="Billing Header 整流器"
-          subtitle="自动移除 Claude 请求里的 billing header system 块。适合OAuth用户"
+          subtitle="仅对第三方 API Key 上游移除 billing header system 块；官方 Anthropic 和 OAuth 请求保留。"
         >
           <Switch
             checked={rectifier.enable_billing_header_rectifier}

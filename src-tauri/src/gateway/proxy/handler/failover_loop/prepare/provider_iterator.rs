@@ -197,6 +197,30 @@ pub(super) async fn prepare_provider<R: tauri::Runtime>(
     let mut strip_request_content_encoding = input.strip_request_content_encoding_seed;
     let mut gemini_oauth_response_mode = None;
 
+    if input.cli_key == "claude" && input.enable_billing_header_rectifier {
+        if let Some((body, removed_count)) =
+            crate::gateway::billing_header_rectifier::rectify_for_provider(
+                &provider.auth_mode,
+                &provider_base_url_base,
+                &upstream_body_bytes,
+            )
+        {
+            upstream_body_bytes = Bytes::from(body);
+            strip_request_content_encoding = true;
+            response_fixer::push_special_setting(
+                ctx.special_settings,
+                serde_json::json!({
+                    "type": "billing_header_rectifier",
+                    "scope": "attempt",
+                    "hit": true,
+                    "providerId": provider_id,
+                    "providerName": provider_name_base,
+                    "removedCount": removed_count,
+                }),
+            );
+        }
+    }
+
     if let Some(adapter) = &oauth_adapter {
         if adapter.provider_type() == "gemini_oauth" {
             match provider_checks::prepare_gemini_oauth(

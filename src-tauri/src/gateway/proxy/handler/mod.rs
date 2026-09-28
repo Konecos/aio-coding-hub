@@ -34,12 +34,11 @@ mod runtime_settings;
 
 use early_error::extract_forced_provider_id;
 use middleware::{
-    BillingHeaderRectifierMiddleware, BodyReaderMiddleware, CliProxyGuardMiddleware,
-    CodexRequestClassifierMiddleware, CodexSessionCompletionMiddleware,
-    Cx2ccCountTokensInterceptorMiddleware, MiddlewareAction, ModelInferenceMiddleware,
-    ProbeInterceptorMiddleware, ProviderResolutionMiddleware, ProxyContext,
-    RecursionGuardMiddleware, RequestFingerprintMiddleware, ResponseInputRectifierMiddleware,
-    RuntimeSettingsMiddleware, WarmupInterceptorMiddleware,
+    BodyReaderMiddleware, CliProxyGuardMiddleware, CodexRequestClassifierMiddleware,
+    CodexSessionCompletionMiddleware, Cx2ccCountTokensInterceptorMiddleware, MiddlewareAction,
+    ModelInferenceMiddleware, ProbeInterceptorMiddleware, ProviderResolutionMiddleware,
+    ProxyContext, RecursionGuardMiddleware, RequestFingerprintMiddleware,
+    ResponseInputRectifierMiddleware, RuntimeSettingsMiddleware, WarmupInterceptorMiddleware,
 };
 
 type SpecialSettings = Arc<Mutex<Vec<serde_json::Value>>>;
@@ -275,25 +274,19 @@ where
         MiddlewareAction::ShortCircuit(resp) => return resp,
     };
 
-    // 11. Billing header rectifier.
-    let ctx = match BillingHeaderRectifierMiddleware::run(ctx) {
-        MiddlewareAction::Continue(ctx) => *ctx,
-        MiddlewareAction::ShortCircuit(resp) => return resp,
-    };
-
-    // 12. Provider resolution (session routing + provider selection).
+    // 11. Provider resolution (session routing + provider selection).
     let ctx = match ProviderResolutionMiddleware::run(ctx).await {
         MiddlewareAction::Continue(ctx) => *ctx,
         MiddlewareAction::ShortCircuit(resp) => return resp,
     };
 
-    // 13. CX2CC count_tokens compatibility.
+    // 12. CX2CC count_tokens compatibility.
     let ctx = match Cx2ccCountTokensInterceptorMiddleware::run(ctx) {
         MiddlewareAction::Continue(ctx) => *ctx,
         MiddlewareAction::ShortCircuit(resp) => return resp,
     };
 
-    // 14. Request fingerprinting + recent error cache gate.
+    // 13. Request fingerprinting + recent error cache gate.
     let ctx = match RequestFingerprintMiddleware::run(ctx) {
         MiddlewareAction::Continue(ctx) => *ctx,
         MiddlewareAction::ShortCircuit(resp) => return resp,
