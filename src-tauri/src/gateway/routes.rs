@@ -121,6 +121,8 @@ where
 #[cfg(test)]
 #[allow(clippy::await_holding_lock, clippy::field_reassign_with_default)]
 mod tests {
+    mod alpha_search;
+
     use super::build_router;
     use crate::app::plugins::{official, runtime_executor::RuntimeGatewayPluginExecutor};
     use crate::domain::plugin_contributions::PluginContributes;

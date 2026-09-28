@@ -296,7 +296,7 @@ function GatewayRectifierSettingsSection({
         )}
         <SettingsRow
           label="Codex Session ID 补全"
-          subtitle="当 Codex 请求仅提供 session_id 或 prompt_cache_key 之一时，自动补全另一侧；若两者均缺失，则生成并稳定复用会话标识。"
+          subtitle="当 Codex 请求仅提供 session_id 或 prompt_cache_key 之一时，自动补全另一侧；若两者均缺失，则生成并稳定复用会话标识。独立搜索（alpha/search）不参与补全，其兼容处理始终生效。"
         >
           <Switch
             checked={codexSessionIdCompletionEnabled}

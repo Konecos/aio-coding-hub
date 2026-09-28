@@ -1134,7 +1134,7 @@ mod tests {
             ]
         });
 
-        let decision = resolve_session_routing_decision(&headers, Some(&body), true);
+        let decision = resolve_session_routing_decision(&headers, Some(&body), true, false);
 
         assert_eq!(decision.session_id, None);
         assert!(!decision.allow_session_reuse);
@@ -1151,10 +1151,41 @@ mod tests {
             ]
         });
 
-        let decision = resolve_session_routing_decision(&headers, Some(&body), false);
+        let decision = resolve_session_routing_decision(&headers, Some(&body), false, false);
 
         assert_eq!(decision.session_id.as_deref(), Some("sess-normal-456"));
         assert!(decision.allow_session_reuse);
+    }
+
+    #[test]
+    fn alpha_search_routing_uses_only_search_id_without_fingerprint_fallback() {
+        let mut headers = HeaderMap::new();
+        headers.insert("session_id", HeaderValue::from_static("responses-session"));
+        for (id, expected) in [
+            (
+                serde_json::json!(" search-session\n"),
+                Some("search-session"),
+            ),
+            (
+                serde_json::json!("another-session"),
+                Some("another-session"),
+            ),
+            (serde_json::json!(" \n\t"), None),
+            (serde_json::json!(123), None),
+            (serde_json::Value::Null, None),
+        ] {
+            for input in ["first query", "second query"] {
+                let body = serde_json::json!({"id": id, "input": input, "prompt_cache_key": "responses-session"});
+                let decision = resolve_session_routing_decision(&headers, Some(&body), false, true);
+                assert_eq!(decision.session_id.as_deref(), expected);
+                assert_eq!(decision.allow_session_reuse, expected.is_some());
+            }
+        }
+        for body in [None, Some(serde_json::json!({"commands": {"open": []}}))] {
+            let decision = resolve_session_routing_decision(&headers, body.as_ref(), false, true);
+            assert!(decision.session_id.is_none());
+            assert!(!decision.allow_session_reuse);
+        }
     }
 
     #[test]

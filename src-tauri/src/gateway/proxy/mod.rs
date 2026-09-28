@@ -5,6 +5,7 @@ use axum::http::{HeaderMap, Method};
 mod abort_guard;
 mod caches;
 pub(in crate::gateway) mod cli_proxy_guard;
+mod codex_alpha_search;
 pub(super) mod cx2cc;
 mod error_code;
 mod errors;

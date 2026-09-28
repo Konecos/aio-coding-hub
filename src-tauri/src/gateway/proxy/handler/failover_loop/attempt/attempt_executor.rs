@@ -231,7 +231,22 @@ where
         }
     }
 
-    // Reactive repairs must preserve the request body already approved by beforeSend.
+    // Apply search protocol constraints after custom headers and plugin mutations.
+    if crate::gateway::proxy::codex_alpha_search::is_request(
+        &input.cli_key,
+        &input.req_method,
+        &input.forwarded_path,
+    ) {
+        if let Some(mut setting) = crate::gateway::proxy::codex_alpha_search::sanitize(
+            &mut semantic_headers,
+            &mut body_state_for_attempt,
+        ) {
+            setting["providerId"] = serde_json::json!(prepared.provider_id);
+            response_fixer::push_special_setting(ctx.special_settings, setting);
+        }
+    }
+
+    // Reactive repairs must preserve the final semantic body for this attempt.
     retry_state.last_attempt_body = body_state_for_attempt.decoded_clone();
     headers = semantic_headers;
     let reasoning_effort = prepared.reasoning_effort.clone();
