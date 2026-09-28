@@ -634,6 +634,7 @@ mod tests {
 
     fn provider_with_5h_limit(id: i64) -> providers::ProviderForGateway {
         providers::ProviderForGateway {
+            custom_headers: Vec::new(),
             id,
             name: "overflow-provider".to_string(),
             base_urls: vec!["https://example.com".to_string()],

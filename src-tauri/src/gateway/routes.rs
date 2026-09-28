@@ -742,6 +742,7 @@ mod tests {
         let provider_id = providers::upsert(
             db,
             providers::ProviderUpsertParams {
+                custom_headers: None,
                 provider_id: None,
                 cli_key: cli_key.to_string(),
                 name: name.to_string(),
@@ -827,6 +828,7 @@ mod tests {
         let provider_id = providers::upsert(
             db,
             providers::ProviderUpsertParams {
+                custom_headers: None,
                 provider_id: None,
                 cli_key: "codex".to_string(),
                 name: name.to_string(),
@@ -874,6 +876,7 @@ mod tests {
         let provider_id = providers::upsert(
             db,
             providers::ProviderUpsertParams {
+                custom_headers: None,
                 provider_id: None,
                 cli_key: "claude".to_string(),
                 name: "CX2CC Bridge Stub".to_string(),
@@ -3848,6 +3851,7 @@ module.exports.activate = function activate(api) {
         let provider_id = providers::upsert(
             &db,
             providers::ProviderUpsertParams {
+                custom_headers: None,
                 provider_id: None,
                 cli_key: "claude".to_string(),
                 name: "Legacy Mapping Provider".to_string(),
@@ -3974,7 +3978,7 @@ module.exports.activate = function activate(api) {
             "usage":{"input_tokens":1,"output_tokens":1}
         }"#;
         let (upstream_base_url, capture_rx, upstream_task) =
-            spawn_capturing_json_upstream(success_body).await;
+            spawn_capturing_raw_upstream(success_body).await;
         let source_provider_id = insert_provider_with_priority_and_policy(
             &db,
             "codex",
@@ -3996,6 +4000,16 @@ module.exports.activate = function activate(api) {
             )),
         );
 
+        db.open_connection()
+            .unwrap()
+            .execute(
+                "UPDATE providers SET custom_headers_json = ?1 WHERE id = ?2",
+                rusqlite::params![
+                    r#"[{"name":"x-tenant","value":"source-tenant"}]"#,
+                    source_provider_id
+                ],
+            )
+            .unwrap();
         let (log_tx, mut log_rx) = tokio::sync::mpsc::channel(4);
         let router = build_router(gateway_state(app_handle, db, log_tx));
         let request = Request::builder()
@@ -4012,9 +4026,9 @@ module.exports.activate = function activate(api) {
         let response = router.oneshot(request).await.expect("route response");
         assert_eq!(response.status(), StatusCode::OK);
 
-        let upstream_body: Value =
-            serde_json::from_str(&capture_rx.await.expect("upstream request capture"))
-                .expect("upstream body");
+        let captured = capture_rx.await.expect("upstream request capture");
+        assert!(captured.has_header_line("x-tenant: source-tenant"));
+        let upstream_body: Value = serde_json::from_slice(&captured.body).expect("upstream body");
         // claude_models bridge translation wins; the policy mapping (claude-3-5-sonnet
         // -> bridge-target) must not overwrite it.
         assert_eq!(

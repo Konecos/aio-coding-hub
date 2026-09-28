@@ -74,6 +74,7 @@ describe("pages/providers/providerDuplicate", () => {
       source_provider_id: null,
       bridge_type: null,
       stream_idle_timeout_seconds: null,
+      custom_headers: [],
     });
     expect(duplicated.base_urls).toEqual(["https://a.example.com", "https://b.example.com"]);
     expect(duplicated.tags).toEqual(["tag-a", "tag-b"]);
@@ -119,4 +120,12 @@ describe("pages/providers/providerDuplicate", () => {
     });
     expect(duplicated.claude_models).toEqual({});
   });
+});
+
+it("deep-copies custom headers", () => {
+  const provider = createProvider({ custom_headers: [{ name: "x-tenant", value: "tenant-a" }] });
+  const copy = buildDuplicatedProviderInitialValues(provider, [], null);
+  expect(copy.custom_headers).toEqual(provider.custom_headers);
+  copy.custom_headers![0].value = "tenant-b";
+  expect(provider.custom_headers[0].value).toBe("tenant-a");
 });

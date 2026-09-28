@@ -4,6 +4,7 @@ import { logToConsole } from "../../services/consoleLog";
 import {
   type ProviderOAuthStatusResult,
   type ClaudeModels,
+  type ProviderCustomHeader,
   type ProviderModelPolicyStatus,
   type ProviderModelPolicyV1,
   type ProviderSummary,
@@ -48,6 +49,7 @@ export type EffectDeps = {
   setTags: React.Dispatch<React.SetStateAction<string[]>>;
   setTagInput: (v: string) => void;
   setStreamIdleTimeoutSeconds: (v: string) => void;
+  setCustomHeaders: (v: ProviderCustomHeader[]) => void;
   setSupportsWebsockets: (v: boolean) => void;
   setAuthMode: (v: "api_key" | "oauth" | "cx2cc") => void;
   setCx2ccSourceValue: (v: string) => void;
@@ -92,6 +94,7 @@ export function useProviderEditorEffects(d: EffectDeps) {
     setTags,
     setTagInput,
     setStreamIdleTimeoutSeconds,
+    setCustomHeaders,
     setSupportsWebsockets,
     setAuthMode,
     setCx2ccSourceValue,
@@ -147,6 +150,7 @@ export function useProviderEditorEffects(d: EffectDeps) {
       );
       setTagInput("");
       setStreamIdleTimeoutSeconds(valueOrEmpty(createInitialValues?.stream_idle_timeout_seconds));
+      setCustomHeaders(createInitialValues?.custom_headers ?? []);
       setSupportsWebsockets(
         cliKey === "codex" &&
           !initialCx2ccSourceValue &&
@@ -196,6 +200,7 @@ export function useProviderEditorEffects(d: EffectDeps) {
     );
     setTagInput("");
     setStreamIdleTimeoutSeconds(valueOrEmpty(snapshot.stream_idle_timeout_seconds));
+    setCustomHeaders(snapshot.custom_headers ?? []);
     setSupportsWebsockets(
       cliKey === "codex" && initialAuthMode !== "cx2cc" && (snapshot.supports_websockets ?? false)
     );
@@ -241,6 +246,7 @@ export function useProviderEditorEffects(d: EffectDeps) {
     setOauthStatus,
     setPingingAll,
     setStreamIdleTimeoutSeconds,
+    setCustomHeaders,
     setSupportsWebsockets,
     setTagInput,
     setTags,

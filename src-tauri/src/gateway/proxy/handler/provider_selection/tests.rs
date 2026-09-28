@@ -16,6 +16,7 @@ fn gateway_provider(
     status: providers::ProviderModelPolicyStatus,
 ) -> providers::ProviderForGateway {
     providers::ProviderForGateway {
+        custom_headers: Vec::new(),
         id,
         name: format!("P{id}"),
         base_urls: vec!["https://example.com".to_string()],
@@ -227,6 +228,7 @@ fn insert_provider(db: &crate::db::Db, name: &str, enabled: bool) -> providers::
     let provider = providers::upsert(
         db,
         providers::ProviderUpsertParams {
+            custom_headers: None,
             provider_id: None,
             cli_key: "claude".to_string(),
             name: name.to_string(),

@@ -14,6 +14,7 @@ import { LimitsSection } from "./LimitsSection";
 import { ClaudeModelSection } from "./ClaudeModelSection";
 import { ProviderModelPolicySection } from "./ProviderModelPolicySection";
 import { ContributionSlot } from "../../plugins/contributions/ContributionSlot";
+import { CustomHeadersField } from "./CustomHeadersField";
 
 type ProviderEditorDialogBaseProps = {
   open: boolean;
@@ -128,6 +129,20 @@ export function ProviderEditorDialog(props: ProviderEditorDialogProps) {
             disabled={f.saving}
           />
         </FormField>
+
+        {f.authMode === "cx2cc" ? (
+          <p className="text-sm text-muted-foreground">
+            自定义请求头继承自实际 Codex 来源，请在来源 Provider
+            中配置。切换为桥接前需清空独立请求头。
+          </p>
+        ) : null}
+        {f.authMode !== "cx2cc" || f.customHeaders.length > 0 ? (
+          <CustomHeadersField
+            headers={f.customHeaders}
+            setHeaders={f.setCustomHeaders}
+            saving={f.saving}
+          />
+        ) : null}
 
         <ProviderModelPolicySection
           cliKey={f.cliKey}

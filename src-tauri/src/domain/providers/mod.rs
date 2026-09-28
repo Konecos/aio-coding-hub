@@ -12,7 +12,7 @@ pub use model_policy::{
     ProviderModelMapping, ProviderModelMode, ProviderModelPolicyStatus, ProviderModelPolicyV1,
 };
 pub use types::{
-    ClaudeModels, DailyResetMode, ProviderAuthMode, ProviderBaseUrlMode,
+    ClaudeModels, DailyResetMode, ProviderAuthMode, ProviderBaseUrlMode, ProviderCustomHeader,
     ProviderExtensionValuesInput, ProviderSummary, ProviderUpsertParams,
 };
 
@@ -25,6 +25,11 @@ pub(crate) use types::{
 pub use queries::{
     default_route_list, default_route_set_order, delete, duplicate, get_api_key_plaintext,
     list_by_cli, names_by_id, reorder, upsert,
+};
+
+pub(crate) use types::{
+    custom_headers_from_json, custom_headers_to_map, normalize_custom_headers,
+    validate_custom_headers_owner,
 };
 
 pub(crate) use validation::{normalize_base_urls, validate_supports_websockets};

@@ -102,6 +102,7 @@ function createProviderSummary(overrides: Partial<ProviderSummary> = {}): Provid
     stream_idle_timeout_seconds: null,
     supports_websockets: false,
     extension_values: [],
+    custom_headers: [],
     api_key_configured: false,
     ...overrides,
   };
@@ -136,7 +137,7 @@ describe("services/providers/providers", () => {
       origin: "https://example.com",
       base_url_index: 1,
     });
-    expect(commands.providerModelsDiscover).toHaveBeenCalledWith(input);
+    expect(commands.providerModelsDiscover).toHaveBeenCalledWith({ ...input, customHeaders: null });
   });
 
   it("preserves discovery HTTP status details", async () => {
@@ -178,6 +179,7 @@ describe("services/providers/providers", () => {
         baseUrls: ["https://example.com"],
         baseUrlMode: "order",
         apiKey: "sk-secret",
+        customHeaders: [{ name: "x-tenant", value: "tenant-secret" }],
         sourceProviderId: null,
         bridgeType: null,
       })
@@ -189,7 +191,7 @@ describe("services/providers/providers", () => {
       expect.objectContaining({
         cmd: "provider_models_discover",
         args: expect.objectContaining({
-          input: expect.objectContaining({ apiKey: "[REDACTED]" }),
+          input: expect.objectContaining({ apiKey: "[REDACTED]", customHeaders: "[REDACTED]" }),
         }),
       })
     );
@@ -383,6 +385,7 @@ describe("services/providers/providers", () => {
         baseUrlMode: "order",
         authMode: "api_key",
         apiKey: "sk-test-secret",
+        customHeaders: [{ name: "x-tenant", value: "tenant-secret" }],
         enabled: true,
         costMultiplier: 1,
         priority: null,
@@ -405,6 +408,7 @@ describe("services/providers/providers", () => {
         args: {
           input: expect.objectContaining({
             apiKey: "[REDACTED]",
+            customHeaders: "[REDACTED]",
             name: "P1",
           }),
         },

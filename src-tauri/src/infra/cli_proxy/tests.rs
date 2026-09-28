@@ -236,6 +236,7 @@ fn manifest_entry<'a>(manifest: &'a CliProxyManifest, kind: &str) -> &'a BackupF
 
 fn codex_provider_with_mapping(source: &str) -> ProviderUpsertParams {
     ProviderUpsertParams {
+        custom_headers: None,
         provider_id: None,
         cli_key: "codex".to_string(),
         name: "mapped Codex provider".to_string(),
