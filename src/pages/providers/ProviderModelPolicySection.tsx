@@ -4,9 +4,11 @@ import { Button } from "../../ui/Button";
 import { FormField } from "../../ui/FormField";
 import { Input } from "../../ui/Input";
 import { RadioGroup } from "../../ui/RadioGroup";
+import { Select } from "../../ui/Select";
 import type {
   ClaudeModels,
   CliKey,
+  CodexModelProfile,
   ProviderModelPolicyStatus,
   ProviderModelPolicyV1,
 } from "../../services/providers/providers";
@@ -140,6 +142,17 @@ export function ProviderModelPolicySection({
     emit({ ...currentPolicy, mappings });
     if (mappings.length === 0) mappingComposerRef.current?.focus();
     else focusRef.current = { kind: "mapping", index: Math.min(index, mappings.length - 1) };
+  };
+
+  const updateMappingProfile = (index: number, value: string) => {
+    emit({
+      ...currentPolicy,
+      mappings: currentPolicy.mappings.map((mapping, mappingIndex) =>
+        mappingIndex === index
+          ? { ...mapping, codexProfile: value ? (value as CodexModelProfile) : null }
+          : mapping
+      ),
+    });
   };
 
   const legacyMappings = [
@@ -281,6 +294,32 @@ export function ProviderModelPolicySection({
             ) : null}
 
             <section className="space-y-3" aria-labelledby={`${cliKey}-model-range-title`}>
+              {cliKey === "codex" ? (
+                <div className="space-y-2">
+                  <FormField label="Codex 默认能力预设">
+                    <Select
+                      aria-label="Codex 默认能力预设"
+                      value={currentPolicy.codexProfile ?? "function_compatible"}
+                      onChange={(event) =>
+                        emit({
+                          ...currentPolicy,
+                          codexProfile: event.currentTarget.value as CodexModelProfile,
+                        })
+                      }
+                      disabled={saving}
+                    >
+                      <option value="function_compatible">通用 Function 兼容</option>
+                      <option value="deepseek">DeepSeek 官方 Responses</option>
+                    </Select>
+                  </FormField>
+                  <p className="text-xs text-muted-foreground">
+                    DeepSeek 保留 freeform apply_patch 和并行工具，关闭内置搜索及上游
+                    WebSocket；按目标模型设置推理档位和图像能力。
+                    同一请求模型涉及多个预设时使用共同能力，独立别名可保留专属能力。更改后请启动新的
+                    Codex 会话。
+                  </p>
+                </div>
+              ) : null}
               <div className="space-y-1">
                 <h3
                   id={`${cliKey}-model-range-title`}
@@ -490,6 +529,24 @@ export function ProviderModelPolicySection({
                       >
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
                       </Button>
+                      {cliKey === "codex" ? (
+                        <div className="md:col-span-4">
+                          <FormField label="映射能力预设">
+                            <Select
+                              aria-label={`映射能力预设 ${index + 1}`}
+                              value={mapping.codexProfile ?? ""}
+                              onChange={(event) =>
+                                updateMappingProfile(index, event.currentTarget.value)
+                              }
+                              disabled={saving}
+                            >
+                              <option value="">跟随供应商默认</option>
+                              <option value="function_compatible">通用 Function 兼容</option>
+                              <option value="deepseek">DeepSeek 官方 Responses</option>
+                            </Select>
+                          </FormField>
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>

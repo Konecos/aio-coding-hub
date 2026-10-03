@@ -10,6 +10,7 @@ import {
   type ProviderModelPolicyStatus as GeneratedProviderModelPolicyStatus,
   type ProviderModelPolicyV1 as GeneratedProviderModelPolicyV1,
   type ProviderModelMapping as GeneratedProviderModelMapping,
+  type CodexModelProfile as GeneratedCodexModelProfile,
   type ProviderModelDiscoveryErrorCode as GeneratedProviderModelDiscoveryErrorCode,
   type ProviderModelDiscoveryInput as GeneratedProviderModelDiscoveryInput,
   type ProviderModelDiscoveryResult as GeneratedProviderModelDiscoveryResult,
@@ -67,6 +68,7 @@ export type ProviderBaseUrlMode = GeneratedProviderBaseUrlMode;
 export type ProviderModelMode = GeneratedProviderModelMode;
 export type ProviderModelPolicyStatus = GeneratedProviderModelPolicyStatus;
 export type ProviderModelPolicyV1 = GeneratedProviderModelPolicyV1;
+export type CodexModelProfile = GeneratedCodexModelProfile;
 export type ProviderModelMapping = GeneratedProviderModelMapping;
 export type ProviderModelDiscoveryErrorCode = GeneratedProviderModelDiscoveryErrorCode;
 export type ProviderModelDiscoveryResult = GeneratedProviderModelDiscoveryResult;

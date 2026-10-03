@@ -597,12 +597,14 @@ mod tests {
         mappings: &[(&str, &str)],
     ) -> ProviderModelPolicyV1 {
         ProviderModelPolicyV1 {
+            codex_profile: None,
             version: 1,
             mode,
             model_patterns: model_patterns.iter().map(|v| v.to_string()).collect(),
             mappings: mappings
                 .iter()
                 .map(|(source, target)| crate::providers::ProviderModelMapping {
+                    codex_profile: None,
                     source: source.to_string(),
                     target: target.to_string(),
                 })

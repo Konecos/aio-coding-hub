@@ -806,6 +806,7 @@ mod tests {
         target: Option<&str>,
     ) -> providers::ProviderModelPolicyV1 {
         providers::ProviderModelPolicyV1 {
+            codex_profile: None,
             version: 1,
             mode: providers::ProviderModelMode::Selected,
             model_patterns: target
@@ -816,6 +817,7 @@ mod tests {
             mappings: target
                 .map(|target| {
                     vec![providers::ProviderModelMapping {
+                        codex_profile: None,
                         source: source.to_string(),
                         target: target.to_string(),
                     }]

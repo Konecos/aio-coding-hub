@@ -131,6 +131,14 @@ where
         AttemptSendOutcome::ContextLost(timing) => {
             ws_attempt::recover(ctx, input, prepared, indices, timing, loop_state).await
         }
+        AttemptSendOutcome::StatelessContinuation(timing) => {
+            if input.ws_request.is_some() {
+                ws_attempt::recover(ctx, input, prepared, indices, timing, loop_state).await
+            } else {
+                ws_attempt::finish_error(ctx, input, loop_state, "previous_response_not_found",
+                    "DeepSeek Responses is stateless; resend the full input without previous_response_id").await
+            }
+        }
         AttemptSendOutcome::LocalProtocol(reason, _timing) => {
             if reason == "prewarm_http_required" {
                 if let Some(connection) = &input.ws_connection {

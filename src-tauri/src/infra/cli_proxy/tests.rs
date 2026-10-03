@@ -249,10 +249,12 @@ fn codex_provider_with_mapping(source: &str) -> ProviderUpsertParams {
         priority: Some(100),
         claude_models: None,
         model_policy: Some(ProviderModelPolicyV1 {
+            codex_profile: None,
             version: 1,
             mode: ProviderModelMode::All,
             model_patterns: Vec::new(),
             mappings: vec![ProviderModelMapping {
+                codex_profile: None,
                 source: source.to_string(),
                 target: "mapped-upstream-model".to_string(),
             }],
@@ -2378,6 +2380,60 @@ fn provider_refresh_preserves_existing_catalog_when_manifest_entry_is_missing() 
     let catalog_entry = manifest_entry(&upgraded_manifest, codex::CODEX_MODEL_CATALOG_KIND);
     assert!(catalog_entry.existed);
     assert!(catalog_entry.backup_rel.is_some());
+}
+
+#[test]
+fn codex_profile_without_mapping_writes_catalog_and_disable_restores_config() {
+    let mut app = CliProxyTestApp::new();
+    app.install_fake_codex();
+    let handle = app.handle();
+    let original = "[existing]\nfoo = \"bar\"\n";
+    write_codex_direct_files(&handle, original, "{}\n");
+    let enabled =
+        set_enabled(&handle, "codex", true, "http://127.0.0.1:37123").expect("enable Codex proxy");
+    assert!(enabled.ok, "{enabled:?}");
+    let db = crate::db::init_for_tests(&app.home.path().join("profile-catalog.db")).unwrap();
+    let mut params = codex_provider_with_mapping("unused");
+    params.model_policy = Some(ProviderModelPolicyV1 {
+        version: 1,
+        mode: ProviderModelMode::Selected,
+        model_patterns: vec!["deepseek-flash".into()],
+        mappings: Vec::new(),
+        codex_profile: Some(crate::providers::CodexModelProfile::Deepseek),
+    });
+    let provider = crate::providers::upsert(&db, params).unwrap();
+    assert_eq!(
+        provider.model_policy.as_ref().unwrap().codex_profile,
+        Some(crate::providers::CodexModelProfile::Deepseek)
+    );
+    crate::providers::default_route_set_order(&db, "codex", vec![provider.id]).unwrap();
+    assert_eq!(
+        refresh_codex_model_catalog_if_enabled(&handle, &db).unwrap(),
+        CodexCatalogRefreshResult::Updated
+    );
+    let catalog_path = codex::codex_model_catalog_path(&handle).unwrap();
+    let catalog: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&catalog_path).unwrap()).unwrap();
+    let model = catalog["models"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|model| model["slug"] == "deepseek-flash")
+        .unwrap();
+    assert_eq!(model["apply_patch_tool_type"], "freeform");
+    assert_eq!(model["supports_parallel_tool_calls"], true);
+    let config_path = codex_config_path(&handle).unwrap();
+    assert!(std::fs::read_to_string(&config_path)
+        .unwrap()
+        .contains("model_catalog_json"));
+    let disabled = set_enabled(&handle, "codex", false, "http://127.0.0.1:37123").unwrap();
+    assert!(disabled.ok, "{disabled:?}");
+    let restored = std::fs::read_to_string(config_path).unwrap();
+    assert_eq!(
+        restored.parse::<toml::Value>().unwrap(),
+        original.parse::<toml::Value>().unwrap()
+    );
+    assert!(!catalog_path.exists());
 }
 
 #[test]

@@ -2680,6 +2680,10 @@ export type CodexModelCatalogState = {
   models: CodexModelCapability[];
 };
 export type CodexModelCatalogStatus = "ready" | "degraded" | "unavailable";
+/**
+ * Explicit Codex compatibility contract, independent of the client-visible alias.
+ */
+export type CodexModelProfile = "function_compatible" | "deepseek";
 export type CodexPriorityBillingSource = "requested" | "actual";
 export type CodexProxySyncStatus =
   | "not_requested"
@@ -3692,7 +3696,11 @@ export type ProviderModelDiscoveryResult =
   | { status: "unsupported"; reason: ProviderModelDiscoveryUnsupportedReason }
   | { status: "error"; code: ProviderModelDiscoveryErrorCode; http_status: number | null };
 export type ProviderModelDiscoveryUnsupportedReason = "oauth" | "cx_2cc";
-export type ProviderModelMapping = { source: string; target: string };
+export type ProviderModelMapping = {
+  source: string;
+  target: string;
+  codexProfile?: CodexModelProfile | null;
+};
 export type ProviderModelMode = "all" | "selected" | "excluded";
 export type ProviderModelPolicyStatus = "legacy" | "ready" | "invalid";
 export type ProviderModelPolicyV1 = {
@@ -3700,6 +3708,7 @@ export type ProviderModelPolicyV1 = {
   mode: ProviderModelMode;
   modelPatterns: string[];
   mappings: ProviderModelMapping[];
+  codexProfile?: CodexModelProfile | null;
 };
 export type ProviderOAuthDeviceCodeCancelResult = { cancelled: boolean };
 export type ProviderOAuthDeviceCodePollInput = {

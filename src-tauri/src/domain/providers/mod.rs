@@ -9,7 +9,8 @@ pub(crate) use model_policy::normalize_concrete_model_id;
 pub(crate) use model_policy::ProviderModelEligibility;
 #[allow(unused_imports)]
 pub use model_policy::{
-    ProviderModelMapping, ProviderModelMode, ProviderModelPolicyStatus, ProviderModelPolicyV1,
+    CodexModelProfile, ProviderModelMapping, ProviderModelMode, ProviderModelPolicyStatus,
+    ProviderModelPolicyV1,
 };
 pub use types::{
     ClaudeModels, DailyResetMode, ProviderAuthMode, ProviderBaseUrlMode, ProviderCustomHeader,

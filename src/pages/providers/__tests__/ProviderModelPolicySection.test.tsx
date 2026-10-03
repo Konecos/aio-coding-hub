@@ -39,6 +39,37 @@ function renderSection(
 }
 
 describe("pages/providers/ProviderModelPolicySection", () => {
+  it("selects a default profile and allows a mapping to override it", () => {
+    const onChange = renderSection("codex", "ready", {
+      ...allPolicy,
+      codexProfile: "deepseek",
+      mappings: [{ source: "coding", target: "deepseek-flash" }],
+    });
+    expect(screen.getByLabelText("Codex 默认能力预设")).toHaveValue("deepseek");
+    fireEvent.change(screen.getByLabelText("映射能力预设 1"), {
+      target: { value: "function_compatible" },
+    });
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        codexProfile: "deepseek",
+        mappings: [
+          { source: "coding", target: "deepseek-flash", codexProfile: "function_compatible" },
+        ],
+      })
+    );
+    fireEvent.change(screen.getByLabelText("Codex 默认能力预设"), {
+      target: { value: "function_compatible" },
+    });
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ codexProfile: "function_compatible" })
+    );
+  });
+
+  it.each<CliKey>(["claude", "gemini", "grok"])("hides Codex profiles for %s", (cliKey) => {
+    renderSection(cliKey, "ready", { ...allPolicy, mappings: [{ source: "a", target: "b" }] });
+    expect(screen.queryByLabelText("Codex 默认能力预设")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("映射能力预设 1")).not.toBeInTheDocument();
+  });
   it.each<CliKey>(["claude", "codex", "gemini", "grok"])(
     "renders the shared model section for %s",
     (cliKey) => {

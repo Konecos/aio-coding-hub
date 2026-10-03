@@ -876,6 +876,7 @@ mod tests {
 
         let mut policy_changed = previous.clone();
         policy_changed.model_policy = Some(providers::ProviderModelPolicyV1 {
+            codex_profile: None,
             version: 1,
             mode: providers::ProviderModelMode::Selected,
             model_patterns: vec!["claude-sonnet-*".to_string()],

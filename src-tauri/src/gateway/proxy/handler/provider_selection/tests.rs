@@ -44,6 +44,7 @@ fn gateway_provider(
 
 fn selected_policy(source: &str) -> providers::ProviderModelPolicyV1 {
     providers::ProviderModelPolicyV1 {
+        codex_profile: None,
         version: 1,
         mode: providers::ProviderModelMode::Selected,
         model_patterns: vec![source.to_string()],
@@ -53,10 +54,12 @@ fn selected_policy(source: &str) -> providers::ProviderModelPolicyV1 {
 
 fn mapping_policy(source: &str, target: &str) -> providers::ProviderModelPolicyV1 {
     providers::ProviderModelPolicyV1 {
+        codex_profile: None,
         version: 1,
         mode: providers::ProviderModelMode::All,
         model_patterns: vec![],
         mappings: vec![providers::ProviderModelMapping {
+            codex_profile: None,
             source: source.to_string(),
             target: target.to_string(),
         }],
@@ -65,6 +68,7 @@ fn mapping_policy(source: &str, target: &str) -> providers::ProviderModelPolicyV
 
 fn excluded_policy(source: &str) -> providers::ProviderModelPolicyV1 {
     providers::ProviderModelPolicyV1 {
+        codex_profile: None,
         version: 1,
         mode: providers::ProviderModelMode::Excluded,
         model_patterns: vec![source.to_string()],

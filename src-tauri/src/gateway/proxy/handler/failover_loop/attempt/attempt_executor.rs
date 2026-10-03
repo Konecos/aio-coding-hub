@@ -70,6 +70,7 @@ pub(super) enum AttemptSendOutcome {
     StreamResponse(crate::gateway::streams::UpstreamResponse, AttemptTiming),
     WsTransport(&'static str, AttemptTiming),
     ContextLost(AttemptTiming),
+    StatelessContinuation(AttemptTiming),
     LocalProtocol(&'static str, AttemptTiming),
     Timeout(AttemptTiming),
     ReqwestError(reqwest::Error, AttemptTiming),
@@ -246,10 +247,40 @@ where
         }
     }
 
+    let codex_profile = if input.cli_key == "codex" {
+        input
+            .providers
+            .iter()
+            .find(|provider| provider.id == prepared.provider_id)
+            .filter(|provider| !provider.is_cx2cc_bridge())
+            .and_then(|provider| provider.model_policy.as_ref())
+            .map(|policy| {
+                policy.codex_profile_for_model(input.requested_model.as_deref().unwrap_or_default())
+            })
+            .unwrap_or_default()
+    } else {
+        crate::providers::CodexModelProfile::default()
+    };
+    if let Some(body) = codex_model_profile::adapt_request(
+        codex_profile,
+        &prepared.upstream_forwarded_path,
+        &body_state_for_attempt.decoded_clone(),
+    ) {
+        body_state_for_attempt.replace_decoded(body);
+    }
+
     // Reactive repairs must preserve the final semantic body for this attempt.
     retry_state.last_attempt_body = body_state_for_attempt.decoded_clone();
     headers = semantic_headers;
-    let reasoning_effort = prepared.reasoning_effort.clone();
+    let reasoning_effort = if codex_profile == crate::providers::CodexModelProfile::Deepseek {
+        crate::gateway::proxy::forwarder::failover_loop::reasoning_effort::extract(
+            &retry_state.last_attempt_body,
+            &prepared.upstream_forwarded_path,
+            None,
+        )
+    } else {
+        prepared.reasoning_effort.clone()
+    };
     let mut upstream_body = body_state_for_attempt
         .finalize_for_upstream(&mut headers, crate::gateway::util::max_request_body_bytes());
 
@@ -296,6 +327,18 @@ where
         upstream_sent: true,
     };
 
+    if matches!(
+        prepared.upstream_forwarded_path.trim_end_matches('/'),
+        "/v1/responses" | "/responses"
+    ) && codex_model_profile::needs_full_input(codex_profile, &retry_state.last_attempt_body)
+    {
+        timing.upstream_sent = false;
+        loop_state
+            .abort_guard
+            .update_in_flight_attempt_send_state(timing.reasoning_effort.clone(), false);
+        return AttemptSendOutcome::StatelessContinuation(timing);
+    }
+
     if let Some(connection) = input
         .ws_connection
         .as_ref()
@@ -306,7 +349,10 @@ where
             .iter()
             .find(|p| p.id == prepared.provider_id)
             .is_some_and(|p| {
-                p.supports_websockets && p.auth_mode == "api_key" && !p.is_cx2cc_bridge()
+                p.supports_websockets
+                    && p.auth_mode == "api_key"
+                    && !p.is_cx2cc_bridge()
+                    && codex_profile != crate::providers::CodexModelProfile::Deepseek
             });
         let deadline = input.ws_request.as_ref().and_then(|request| {
             use crate::shared::mutex_ext::MutexExt;

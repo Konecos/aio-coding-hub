@@ -14,6 +14,7 @@ export const DEFAULT_PROVIDER_MODEL_POLICY: ProviderModelPolicyV1 = {
 
 export function cloneProviderModelPolicy(policy: ProviderModelPolicyV1): ProviderModelPolicyV1 {
   return {
+    ...policy,
     version: policy.version,
     mode: policy.mode,
     modelPatterns: [...policy.modelPatterns],
@@ -23,6 +24,10 @@ export function cloneProviderModelPolicy(policy: ProviderModelPolicyV1): Provide
 
 export function validateProviderModelPolicy(policy: ProviderModelPolicyV1): string | null {
   if (policy.version !== 1) return "模型策略版本不受支持";
+  const profiles = ["function_compatible", "deepseek"];
+  if (policy.codexProfile != null && !profiles.includes(policy.codexProfile)) {
+    return "Codex 能力预设不受支持";
+  }
 
   const patternSources = new Set<string>();
   for (const rawPattern of policy.modelPatterns) {
@@ -35,6 +40,9 @@ export function validateProviderModelPolicy(policy: ProviderModelPolicyV1): stri
 
   const mappingSources = new Set<string>();
   for (const mapping of policy.mappings) {
+    if (mapping.codexProfile != null && !profiles.includes(mapping.codexProfile)) {
+      return "映射的 Codex 能力预设不受支持";
+    }
     const source = mapping.source.trim();
     const target = mapping.target.trim();
     const sourceError = validateModelPattern(source, "请求模型");
@@ -66,6 +74,7 @@ export function normalizeProviderModelPolicyDraft(policy: ProviderModelPolicyV1)
     ...policy,
     modelPatterns: policy.modelPatterns.map((pattern) => pattern.trim()),
     mappings: policy.mappings.map<ProviderModelMapping>((mapping) => ({
+      ...mapping,
       source: mapping.source.trim(),
       target: mapping.target.trim(),
     })),

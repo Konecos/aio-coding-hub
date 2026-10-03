@@ -264,6 +264,10 @@ pnpm tauri:build
 3. **照常使用 CLI** — 在终端正常使用 Claude Code / Codex / Gemini CLI
 4. **查看统计** — 在控制台 / 用量页查看 Trace、Token 用量与花费
 
+Codex 模型适配在供应商的「模型路由」中设置。旧配置继续使用「通用 Function 兼容」；接入 DeepSeek 官方 Responses API 时，可将「Codex 默认能力预设」设为「DeepSeek 官方 Responses」，也可以只在单条映射中覆盖预设。例如，将 `deepseek-coding` 映射到 `deepseek-flash` 并选择 DeepSeek 预设，即可为该别名声明原生 `apply_patch`、并行工具、推理和图像能力。直接使用 `deepseek-flash` 或 `deepseek-v4-pro` 时不需要映射，供应商默认预设也会生成相应目录条目。模型名称和 Base URL 不会自动选择预设。
+
+同一请求模型在默认路由或其他排序模式中可由多个供应商接收时，目录采用共同能力，包括可接收该模型的兜底供应商；使用专属别名和「仅这些可用」模型范围可避免能力冲突。保存后目录自动刷新，请启动新的 Codex 会话。DeepSeek 预设使用 HTTP Responses，并要求完整上下文；收到增量续传请求时会要求客户端重发完整输入。支持的模型能力参考 [DeepSeek 官方 Codex 接入文档](https://api-docs.deepseek.com/quick_start/agent_integrations/codex/)。
+
 验证网关运行：
 
 ```bash

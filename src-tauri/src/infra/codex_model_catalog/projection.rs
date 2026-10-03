@@ -1,6 +1,6 @@
 //! Build the temporary Codex catalog used by the local CLI proxy.
 
-use crate::providers::{ProviderModelEligibility, ProviderModelMode, ProviderModelPolicyV1};
+use crate::providers::{CodexModelProfile, ProviderModelEligibility, ProviderModelPolicyV1};
 use crate::{cli_manager, codex_paths, db, providers};
 use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
@@ -31,7 +31,10 @@ pub(crate) fn build_for_proxy<R: tauri::Runtime>(
     db_override: Option<&db::Db>,
 ) -> crate::shared::error::AppResult<Option<CatalogProjection>> {
     let policies = load_routable_ready_policies(app, db_override)?;
-    if mapping_source_signature(&policies).is_empty() {
+    if !policies
+        .iter()
+        .any(|policy| !policy.mappings.is_empty() || policy.codex_profile.is_some())
+    {
         return Ok(None);
     }
 
@@ -84,7 +87,7 @@ pub(crate) fn build_projection(
             );
         };
         if affected.contains(&slug) {
-            apply_function_compatible_capability(model);
+            apply_model_capability(model, &slug, policies);
         }
         seen.insert(slug);
     }
@@ -102,7 +105,7 @@ pub(crate) fn build_projection(
         object.insert("slug".to_string(), Value::String(source.clone()));
         object.insert("display_name".to_string(), Value::String(source.clone()));
         object.insert("description".to_string(), Value::String(source.clone()));
-        apply_function_compatible_capability(&mut model);
+        apply_model_capability(&mut model, source, policies);
         models.push(model);
     }
 
@@ -187,11 +190,12 @@ fn load_routable_ready_policies<R: tauri::Runtime>(
 
 pub(crate) fn routable_mapping_signature(
     db: &db::Db,
-) -> crate::shared::error::AppResult<Vec<(String, Vec<String>)>> {
+) -> crate::shared::error::AppResult<Vec<String>> {
     let policies = providers::list_ready_model_policies_for_configured_routes(db, "codex")?;
     Ok(mapping_policy_signature(&policies))
 }
 
+#[cfg(test)]
 fn mapping_source_signature(policies: &[ProviderModelPolicyV1]) -> Vec<String> {
     let mut sources = policies
         .iter()
@@ -202,23 +206,12 @@ fn mapping_source_signature(policies: &[ProviderModelPolicyV1]) -> Vec<String> {
     sources
 }
 
-fn mapping_policy_signature(policies: &[ProviderModelPolicyV1]) -> Vec<(String, Vec<String>)> {
-    let mut entries = Vec::new();
-    for policy in policies {
-        let excluded_patterns = if policy.mode == ProviderModelMode::Excluded {
-            policy.model_patterns.clone()
-        } else {
-            Vec::new()
-        };
-        for mapping in &policy.mappings {
-            if !mapping.source.contains('*')
-                && policy.eligibility(&mapping.source) != ProviderModelEligibility::Explicit
-            {
-                continue;
-            }
-            entries.push((mapping.source.clone(), excluded_patterns.clone()));
-        }
-    }
+fn mapping_policy_signature(policies: &[ProviderModelPolicyV1]) -> Vec<String> {
+    // Targets, declared model ranges and profiles all affect the projected contract.
+    let mut entries = policies
+        .iter()
+        .map(|policy| policy.to_json().expect("model policies serialize"))
+        .collect::<Vec<_>>();
     entries.sort();
     entries.dedup();
     entries
@@ -302,6 +295,22 @@ fn collect_affected_sources(
     let mut wildcard_matches = HashSet::new();
 
     for policy in policies {
+        if policy.codex_profile.is_some() {
+            for pattern in &policy.model_patterns {
+                if !pattern.contains('*')
+                    && policy.eligibility(pattern) == ProviderModelEligibility::Explicit
+                {
+                    exact.insert(pattern.clone());
+                }
+            }
+            if policy.codex_profile == Some(CodexModelProfile::Deepseek) {
+                for model in ["deepseek-flash", "deepseek-v4-pro"] {
+                    if policy.eligibility(model) != ProviderModelEligibility::Blocked {
+                        exact.insert(model.to_string());
+                    }
+                }
+            }
+        }
         for mapping in &policy.mappings {
             if !mapping.source.contains('*')
                 && policy.eligibility(&mapping.source) == ProviderModelEligibility::Explicit
@@ -310,7 +319,7 @@ fn collect_affected_sources(
             }
         }
         for slug in baseline_slugs {
-            if policy.has_mapping_match(slug)
+            if (policy.has_mapping_match(slug) || policy.codex_profile.is_some())
                 && policy.eligibility(slug) == ProviderModelEligibility::Explicit
             {
                 wildcard_matches.insert(slug.clone());
@@ -351,6 +360,120 @@ fn apply_function_compatible_capability(value: &mut Value) {
         Value::Bool(false),
     );
     object.insert("supports_search_tool".to_string(), Value::Bool(false));
+}
+
+/// The catalog is shared across default and all configured sort modes. A fallback in
+/// one mode can still be selected even when another mode contains an explicit route.
+fn apply_model_capability(value: &mut Value, source: &str, policies: &[ProviderModelPolicyV1]) {
+    let routes = policies
+        .iter()
+        .filter(|policy| policy.eligibility(source) != ProviderModelEligibility::Blocked)
+        .collect::<Vec<_>>();
+    let all_deepseek = !routes.is_empty()
+        && routes
+            .iter()
+            .all(|policy| policy.codex_profile_for_model(source) == CodexModelProfile::Deepseek);
+    let deepseek_targets = routes
+        .iter()
+        .filter(|policy| policy.codex_profile_for_model(source) == CodexModelProfile::Deepseek)
+        .map(|policy| policy.resolve_mapping(source))
+        .collect::<Vec<_>>();
+    apply_function_compatible_capability(value);
+    let object = value.as_object_mut().expect("validated catalog model");
+    if !deepseek_targets.is_empty() {
+        // DeepSeek Responses is stateless; avoid inheriting WS/lite and reasoning-summary promises.
+        object.insert("prefer_websockets".into(), Value::Bool(false));
+        object.insert("use_responses_lite".into(), Value::Bool(false));
+        object.insert("supports_reasoning_summaries".into(), Value::Bool(false));
+        object.insert(
+            "default_reasoning_summary".into(),
+            Value::String("none".into()),
+        );
+        let deepseek_levels = serde_json::json!([
+            {"effort":"low","description":"轻量推理"},
+            {"effort":"high","description":"深入推理"},
+            {"effort":"max","description":"最大推理深度"}
+        ]);
+        let levels = if all_deepseek {
+            deepseek_levels.as_array().unwrap().clone()
+        } else {
+            object
+                .get("supported_reasoning_levels")
+                .and_then(Value::as_array)
+                .map(|levels| {
+                    levels
+                        .iter()
+                        .filter(|level| {
+                            matches!(
+                                level.get("effort").and_then(Value::as_str),
+                                Some("low" | "high" | "max")
+                            )
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        };
+        if let Some(default) = levels
+            .iter()
+            .find(|level| level["effort"] == "high")
+            .or_else(|| levels.first())
+        {
+            object.insert("default_reasoning_level".into(), default["effort"].clone());
+        } else {
+            object.insert("default_reasoning_level".into(), Value::Null);
+        }
+        object.insert("supported_reasoning_levels".into(), Value::Array(levels));
+        // The safe common modality is text unless every target is the image-capable model.
+        let images = all_deepseek
+            && deepseek_targets
+                .iter()
+                .all(|target| target == "deepseek-flash");
+        object.insert(
+            "input_modalities".into(),
+            if images {
+                serde_json::json!(["text", "image"])
+            } else {
+                serde_json::json!(["text"])
+            },
+        );
+        object.insert("supports_image_detail_original".into(), Value::Bool(images));
+    }
+    if !deepseek_targets.is_empty()
+        && deepseek_targets
+            .iter()
+            .all(|target| matches!(target.as_str(), "deepseek-flash" | "deepseek-v4-pro"))
+    {
+        for field in ["context_window", "max_context_window"] {
+            if all_deepseek {
+                object.insert(field.into(), serde_json::json!(1048576));
+            } else if let Some(window) = object.get(field).and_then(Value::as_u64) {
+                object.insert(field.into(), serde_json::json!(window.min(1048576)));
+            }
+        }
+        let percent = if all_deepseek {
+            95
+        } else {
+            object
+                .get("effective_context_window_percent")
+                .and_then(Value::as_u64)
+                .unwrap_or(95)
+                .min(95)
+        };
+        object.insert(
+            "effective_context_window_percent".into(),
+            serde_json::json!(percent),
+        );
+        // Let Codex compute compaction from the effective window instead of copying a GPT threshold.
+        object.insert("auto_compact_token_limit".into(), Value::Null);
+    }
+    if all_deepseek {
+        object.insert(
+            "apply_patch_tool_type".into(),
+            Value::String("freeform".into()),
+        );
+        object.insert("supports_parallel_tool_calls".into(), Value::Bool(true));
+    }
 }
 
 #[cfg(test)]
@@ -395,12 +518,14 @@ mod tests {
 
     fn policy(mappings: &[(&str, &str)]) -> ProviderModelPolicyV1 {
         ProviderModelPolicyV1 {
+            codex_profile: None,
             version: 1,
             mode: ProviderModelMode::All,
             model_patterns: Vec::new(),
             mappings: mappings
                 .iter()
                 .map(|(source, target)| ProviderModelMapping {
+                    codex_profile: None,
                     source: (*source).to_string(),
                     target: (*target).to_string(),
                 })
@@ -575,6 +700,132 @@ mod tests {
             .is_none());
     }
 
+    fn projected_model(policies: &[ProviderModelPolicyV1], source: &str) -> Value {
+        let result = build_projection(&bundled(), None, policies)
+            .unwrap()
+            .unwrap();
+        let value: Value = serde_json::from_slice(&result.bytes).unwrap();
+        value["models"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|model| model["slug"] == source)
+            .unwrap()
+            .clone()
+    }
+
+    #[test]
+    fn deepseek_alias_uses_target_modalities_and_native_patch_contract() {
+        for (target, modalities) in [
+            ("deepseek-flash", serde_json::json!(["text", "image"])),
+            ("deepseek-v4-pro", serde_json::json!(["text"])),
+        ] {
+            let mut configured = policy(&[("gpt-5.6-luna", target)]);
+            configured.mappings[0].codex_profile = Some(CodexModelProfile::Deepseek);
+            let model = projected_model(&[configured], "gpt-5.6-luna");
+            assert_eq!(model["apply_patch_tool_type"], "freeform");
+            assert_eq!(model["supports_parallel_tool_calls"], true);
+            assert_eq!(model["supports_search_tool"], false);
+            assert_eq!(model["prefer_websockets"], false);
+            assert_eq!(model["use_responses_lite"], false);
+            assert_eq!(model["supports_reasoning_summaries"], false);
+            assert_eq!(model["input_modalities"], modalities);
+            assert_eq!(model["context_window"], 1048576);
+            assert_eq!(model["max_context_window"], 1048576);
+            assert_eq!(model["effective_context_window_percent"], 95);
+            assert!(model["auto_compact_token_limit"].is_null());
+            let levels = model["supported_reasoning_levels"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|level| level["effort"].as_str().unwrap())
+                .collect::<Vec<_>>();
+            assert_eq!(levels, vec!["low", "high", "max"]);
+            assert_eq!(model["model_messages"]["instructions_template"], "keep me");
+            assert!(model.get("tools").is_none());
+        }
+    }
+
+    #[test]
+    fn supplier_profile_projects_direct_models_and_honors_selection_and_exclusions() {
+        let mut configured = policy(&[]);
+        configured.codex_profile = Some(CodexModelProfile::Deepseek);
+        let result = build_projection(&bundled(), None, &[configured.clone()])
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            result.affected_sources,
+            vec!["deepseek-flash", "deepseek-v4-pro"]
+        );
+        configured.mode = ProviderModelMode::Selected;
+        configured.model_patterns = vec!["deepseek-flash".into()];
+        let result = build_projection(&bundled(), None, &[configured.clone()])
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.affected_sources, vec!["deepseek-flash"]);
+        configured.mode = ProviderModelMode::Excluded;
+        let result = build_projection(&bundled(), None, &[configured])
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.affected_sources, vec!["deepseek-v4-pro"]);
+    }
+
+    #[test]
+    fn mapping_can_override_deepseek_supplier_with_function_compatible_contract() {
+        let mut configured = policy(&[("gpt-5.6-luna", "deepseek-flash")]);
+        configured.codex_profile = Some(CodexModelProfile::Deepseek);
+        configured.mappings[0].codex_profile = Some(CodexModelProfile::FunctionCompatible);
+        let model = projected_model(&[configured], "gpt-5.6-luna");
+        assert!(model.get("apply_patch_tool_type").is_none());
+        assert_eq!(model["supports_parallel_tool_calls"], false);
+    }
+
+    #[test]
+    fn shared_alias_uses_common_capabilities_independent_of_provider_order() {
+        let mut deepseek = policy(&[("gpt-5.6-luna", "deepseek-flash")]);
+        deepseek.mappings[0].codex_profile = Some(CodexModelProfile::Deepseek);
+        let generic = policy(&[("gpt-5.6-luna", "other-model")]);
+        let mut catalog = bundled();
+        catalog["models"][0]["context_window"] = serde_json::json!(2000000);
+        catalog["models"][0]["max_context_window"] = serde_json::json!(2000000);
+        catalog["models"][0]["supported_reasoning_levels"] = serde_json::json!([
+            {"effort":"low"}, {"effort":"medium"}, {"effort":"high"}, {"effort":"xhigh"}
+        ]);
+        let first = build_projection(&catalog, None, &[deepseek.clone(), generic.clone()])
+            .unwrap()
+            .unwrap();
+        let second = build_projection(&catalog, None, &[generic, deepseek])
+            .unwrap()
+            .unwrap();
+        assert_eq!(first, second);
+        let value: Value = serde_json::from_slice(&first.bytes).unwrap();
+        let model = &value["models"][0];
+        assert!(model.get("apply_patch_tool_type").is_none());
+        assert_eq!(model["supports_parallel_tool_calls"], false);
+        assert_eq!(model["input_modalities"], serde_json::json!(["text"]));
+        assert_eq!(
+            model["supported_reasoning_levels"],
+            serde_json::json!([{"effort":"low"}, {"effort":"high"}])
+        );
+        assert_eq!(model["context_window"], 1048576);
+        assert_eq!(model["max_context_window"], 1048576);
+    }
+
+    #[test]
+    fn catalog_includes_fallback_contracts_across_sort_modes_and_intersects_multiple_targets() {
+        let mut flash = policy(&[("gpt-5.6-luna", "deepseek-flash")]);
+        flash.mappings[0].codex_profile = Some(CodexModelProfile::Deepseek);
+        let fallback = policy(&[]);
+        let model = projected_model(&[flash.clone(), fallback], "gpt-5.6-luna");
+        assert!(model.get("apply_patch_tool_type").is_none());
+        assert_eq!(model["input_modalities"], serde_json::json!(["text"]));
+        let mut pro = flash.clone();
+        pro.mappings[0].target = "deepseek-v4-pro".into();
+        let model = projected_model(&[flash, pro], "gpt-5.6-luna");
+        assert_eq!(model["apply_patch_tool_type"], "freeform");
+        assert_eq!(model["input_modalities"], serde_json::json!(["text"]));
+    }
+
     #[test]
     fn duplicate_provider_sources_share_one_projection_entry() {
         let mappings = [("gpt-5.6-luna", "deepseek")];
@@ -607,20 +858,34 @@ mod tests {
     }
 
     #[test]
-    fn mapping_policy_signature_tracks_exclusions_but_ignores_targets_and_duplicates() {
-        let all = policy(&[("gpt-*", "deepseek-*")]);
-        let duplicate_with_other_target = policy(&[("gpt-*", "other-*")]);
-        let mut excluded = policy(&[("gpt-*", "deepseek-*")]);
-        excluded.mode = ProviderModelMode::Excluded;
-        excluded.model_patterns = vec!["gpt-5.6-*".to_string()];
-
+    fn catalog_signature_tracks_targets_profiles_and_ranges_but_deduplicates_policies() {
+        let original = policy(&[("gpt-*", "deepseek-*")]);
+        let before = mapping_policy_signature(std::slice::from_ref(&original));
         assert_eq!(
-            mapping_policy_signature(&[all, duplicate_with_other_target, excluded]),
-            vec![
-                ("gpt-*".to_string(), vec![]),
-                ("gpt-*".to_string(), vec!["gpt-5.6-*".to_string()])
-            ]
+            mapping_policy_signature(&[original.clone(), original.clone()]),
+            before
         );
+        let mut changed = original.clone();
+        changed.mappings[0].target = "other-*".into();
+        assert_ne!(mapping_policy_signature(&[changed]), before);
+        let mut changed = original.clone();
+        changed.codex_profile = Some(CodexModelProfile::Deepseek);
+        assert_ne!(mapping_policy_signature(&[changed]), before);
+        let mut changed = original.clone();
+        changed.mappings[0].codex_profile = Some(CodexModelProfile::Deepseek);
+        assert_ne!(mapping_policy_signature(&[changed]), before);
+        let mut changed = original;
+        changed.mode = ProviderModelMode::Excluded;
+        changed.model_patterns = vec!["gpt-5.6-*".into()];
+        assert_ne!(mapping_policy_signature(&[changed]), before);
+    }
+
+    fn signature_sources(signature: Vec<String>) -> Vec<String> {
+        let policies = signature
+            .iter()
+            .map(|json| serde_json::from_str::<ProviderModelPolicyV1>(json).expect("policy"))
+            .collect::<Vec<_>>();
+        mapping_source_signature(&policies)
     }
 
     #[test]
@@ -641,13 +906,19 @@ mod tests {
             .map(|index| (format!("model-{index}"), "target".to_string()))
             .collect::<Vec<_>>();
         let policy = ProviderModelPolicyV1 {
+            codex_profile: None,
             version: 1,
             mode: ProviderModelMode::All,
             model_patterns: Vec::new(),
             mappings: mappings
                 .into_iter()
-                .map(|(source, target)| ProviderModelMapping { source, target })
+                .map(|(source, target)| ProviderModelMapping {
+                    codex_profile: None,
+                    source,
+                    target,
+                })
                 .chain(std::iter::once(ProviderModelMapping {
+                    codex_profile: None,
                     source: long.clone(),
                     target: "target".to_string(),
                 }))
@@ -733,27 +1004,21 @@ mod tests {
         }
 
         assert_eq!(
-            routable_mapping_signature(&db).expect("list routable mappings"),
-            vec![
-                ("source-default".to_string(), vec![]),
-                ("source-sort".to_string(), vec![])
-            ]
+            signature_sources(routable_mapping_signature(&db).expect("list routable mappings")),
+            vec!["source-default", "source-sort"]
         );
 
         crate::sort_modes::set_active(&db, "codex", Some(inactive_mode.id))
             .expect("switch active mode");
         assert_eq!(
-            routable_mapping_signature(&db).expect("list after active switch"),
-            vec![
-                ("source-default".to_string(), vec![]),
-                ("source-sort".to_string(), vec![])
-            ]
+            signature_sources(routable_mapping_signature(&db).expect("list after active switch")),
+            vec!["source-default", "source-sort"]
         );
 
         providers::default_route_set_order(&db, "codex", vec![]).expect("clear default route");
         assert_eq!(
-            routable_mapping_signature(&db).expect("list after default removal"),
-            vec![("source-sort".to_string(), vec![])]
+            signature_sources(routable_mapping_signature(&db).expect("list after default removal")),
+            vec!["source-sort"]
         );
 
         crate::sort_modes::set_mode_provider_enabled(

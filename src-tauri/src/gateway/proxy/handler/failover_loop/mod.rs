@@ -22,6 +22,8 @@ mod claude_metadata_user_id_injection;
 mod claude_model_mapping;
 #[path = "prepare/codex_chatgpt.rs"]
 mod codex_chatgpt;
+#[path = "prepare/codex_model_profile.rs"]
+mod codex_model_profile;
 #[path = "prepare/codex_service_tier.rs"]
 mod codex_service_tier;
 #[path = "prepare/codex_session_id_completion.rs"]

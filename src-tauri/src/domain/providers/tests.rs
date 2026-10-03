@@ -951,10 +951,12 @@ fn provider_model_policy_round_trips_and_invalid_rows_fail_closed() {
     let mut params = default_provider_params("model-policy-ready");
     params.model_policy = Some(
         ProviderModelPolicyV1 {
+            codex_profile: None,
             version: 1,
             mode: ProviderModelMode::Selected,
             model_patterns: vec![],
             mappings: vec![ProviderModelMapping {
+                codex_profile: None,
                 source: "gpt-*".to_string(),
                 target: "upstream-*".to_string(),
             }],

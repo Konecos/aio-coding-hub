@@ -1,7 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { validateProviderModelPolicy } from "../providerModelPolicy";
+import {
+  cloneProviderModelPolicy,
+  normalizeProviderModelPolicyDraft,
+  validateProviderModelPolicy,
+} from "../providerModelPolicy";
 
 describe("providerModelPolicy", () => {
+  it("preserves supplier and mapping profiles through editing and duplication", () => {
+    const policy = {
+      version: 1,
+      mode: "selected" as const,
+      modelPatterns: [" deepseek-flash "],
+      codexProfile: "deepseek" as const,
+      mappings: [
+        {
+          source: " alias ",
+          target: " deepseek-v4-pro ",
+          codexProfile: "function_compatible" as const,
+        },
+      ],
+    };
+    const normalized = normalizeProviderModelPolicyDraft(cloneProviderModelPolicy(policy));
+    expect(normalized.codexProfile).toBe("deepseek");
+    expect(normalized.mappings).toEqual([
+      { source: "alias", target: "deepseek-v4-pro", codexProfile: "function_compatible" },
+    ]);
+    expect(validateProviderModelPolicy(normalized)).toBeNull();
+    expect(policy.mappings[0].source).toBe(" alias ");
+  });
   it("accepts large policies and long Unicode model names", () => {
     expect(
       validateProviderModelPolicy({

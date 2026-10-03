@@ -19,11 +19,22 @@ pub enum ProviderModelMode {
     Excluded,
 }
 
+/// Explicit Codex compatibility contract, independent of the client-visible alias.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CodexModelProfile {
+    #[default]
+    FunctionCompatible,
+    Deepseek,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProviderModelMapping {
     pub source: String,
     pub target: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub codex_profile: Option<CodexModelProfile>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type, PartialEq, Eq)]
@@ -33,6 +44,8 @@ pub struct ProviderModelPolicyV1 {
     pub mode: ProviderModelMode,
     pub model_patterns: Vec<String>,
     pub mappings: Vec<ProviderModelMapping>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub codex_profile: Option<CodexModelProfile>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,6 +62,7 @@ impl ProviderModelPolicyV1 {
             mode: ProviderModelMode::All,
             model_patterns: Vec::new(),
             mappings: Vec::new(),
+            codex_profile: None,
         }
     }
 
@@ -162,6 +176,15 @@ impl ProviderModelPolicyV1 {
         source_model.to_string()
     }
 
+    pub(crate) fn codex_profile_for_model(&self, source_model: &str) -> CodexModelProfile {
+        self.mappings
+            .iter()
+            .find(|mapping| match_pattern(&mapping.source, source_model).is_some())
+            .and_then(|mapping| mapping.codex_profile)
+            .or(self.codex_profile)
+            .unwrap_or_default()
+    }
+
     pub(crate) fn has_mapping_match(&self, source_model: &str) -> bool {
         self.mappings
             .iter()
@@ -221,12 +244,51 @@ fn match_pattern<'a>(pattern: &'a str, source_model: &'a str) -> Option<&'a str>
 #[cfg(test)]
 mod tests {
     use super::{
-        ProviderModelEligibility, ProviderModelMapping, ProviderModelMode,
+        CodexModelProfile, ProviderModelEligibility, ProviderModelMapping, ProviderModelMode,
         ProviderModelPolicyStatus, ProviderModelPolicyV1,
     };
 
+    #[test]
+    fn codex_profiles_keep_old_policies_compatible_and_support_mapping_overrides() {
+        let raw = r#"{"version":1,"mode":"all","modelPatterns":[],"mappings":[{"source":"alias","target":"deepseek-flash"}]}"#;
+        let (old, status) = ProviderModelPolicyV1::decode(Some(raw), "codex");
+        assert_eq!(status, ProviderModelPolicyStatus::Ready);
+        let mut policy = old.unwrap();
+        assert_eq!(
+            policy.codex_profile_for_model("alias"),
+            CodexModelProfile::FunctionCompatible
+        );
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&policy.to_json().unwrap()).unwrap(),
+            serde_json::from_str::<serde_json::Value>(raw).unwrap()
+        );
+        policy.codex_profile = Some(CodexModelProfile::Deepseek);
+        assert_eq!(
+            policy.codex_profile_for_model("alias"),
+            CodexModelProfile::Deepseek
+        );
+        policy.mappings[0].codex_profile = Some(CodexModelProfile::FunctionCompatible);
+        assert_eq!(
+            policy.codex_profile_for_model("alias"),
+            CodexModelProfile::FunctionCompatible
+        );
+        let decoded = ProviderModelPolicyV1::decode(Some(&policy.to_json().unwrap()), "codex")
+            .0
+            .unwrap();
+        assert_eq!(decoded, policy);
+        let invalid = raw.replace(
+            "\"version\":1",
+            "\"version\":1,\"codexProfile\":\"unknown\"",
+        );
+        assert_eq!(
+            ProviderModelPolicyV1::decode(Some(&invalid), "codex").1,
+            ProviderModelPolicyStatus::Invalid
+        );
+    }
+
     fn mapping(source: &str, target: &str) -> ProviderModelMapping {
         ProviderModelMapping {
+            codex_profile: None,
             source: source.to_string(),
             target: target.to_string(),
         }
@@ -238,6 +300,7 @@ mod tests {
         mappings: Vec<ProviderModelMapping>,
     ) -> ProviderModelPolicyV1 {
         ProviderModelPolicyV1 {
+            codex_profile: None,
             version: 1,
             mode,
             model_patterns: model_patterns.into_iter().map(str::to_string).collect(),
@@ -360,6 +423,7 @@ mod tests {
         let long_target = format!("upstream-{}", "型".repeat(201));
         let model_patterns = (0..501).map(|index| format!("model-{index}")).collect();
         let value = ProviderModelPolicyV1 {
+            codex_profile: None,
             version: 1,
             mode: ProviderModelMode::Selected,
             model_patterns,
