@@ -29,6 +29,7 @@ import {
   useCliManagerCodexInfoQuery,
   useCliManagerCodexModelCatalogQuery,
   useCliManagerCodexModelCatalogRefresh,
+  useCliManagerCodexModelCatalogRegenerateMutation,
   useCliManagerGeminiConfigQuery,
   useCliManagerGeminiConfigSetMutation,
   useCliManagerGeminiInfoQuery,
@@ -206,6 +207,7 @@ vi.mock("../../query/cliManager", async () => {
     useCliManagerCodexConfigTomlSetMutation: vi.fn(),
     useCliManagerCodexModelCatalogQuery: vi.fn(),
     useCliManagerCodexModelCatalogRefresh: vi.fn(),
+    useCliManagerCodexModelCatalogRegenerateMutation: vi.fn(),
     useCliManagerGeminiConfigQuery: vi.fn(),
     useCliManagerGeminiConfigSetMutation: vi.fn(),
     useCliManagerGeminiInfoQuery: vi.fn(),
@@ -346,6 +348,10 @@ beforeEach(() => {
     isError: false,
   } as any);
   vi.mocked(useCliManagerCodexModelCatalogRefresh).mockReturnValue(vi.fn() as any);
+  vi.mocked(useCliManagerCodexModelCatalogRegenerateMutation).mockReturnValue({
+    isPending: false,
+    mutateAsync: vi.fn(),
+  } as any);
 
   vi.mocked(useProvidersListQuery).mockReturnValue({
     data: null,
@@ -355,6 +361,61 @@ beforeEach(() => {
 });
 
 describe("pages/CliManagerPage", () => {
+  it.each([
+    ["updated", "已更新 Codex 模型目录"],
+    ["unchanged", "Codex 模型目录已是最新，无需更新"],
+    ["not_active", "请先在首页开启 Codex 代理接管，再重新生成模型目录"],
+  ])("reports manual catalog regeneration result %s", async (status, message) => {
+    const mutateAsync = vi.fn().mockResolvedValue(status);
+    vi.mocked(useCliManagerCodexModelCatalogRegenerateMutation).mockReturnValue({
+      isPending: false,
+      mutateAsync,
+    } as any);
+    vi.mocked(useCliManagerCodexInfoQuery).mockReturnValue({
+      data: { found: true, executable_path: "/bin/codex", version: "1.0" },
+      isFetching: false,
+    } as any);
+    vi.mocked(useCliManagerCodexConfigQuery).mockReturnValue({
+      data: { config_path: "/codex/config.toml" },
+      isFetching: false,
+    } as any);
+    const { result } = renderHook(() => useCliManagerPageDataModel());
+    await act(async () => {
+      await result.current.codexTabProps.regenerateCodexModelCatalog();
+    });
+    expect(mutateAsync).toHaveBeenCalledWith({
+      configPath: "/codex/config.toml",
+      executablePath: "/bin/codex",
+      cliVersion: "1.0",
+    });
+    expect(toast).toHaveBeenCalledWith(message);
+  });
+
+  it("reports catalog regeneration failure without a success toast", async () => {
+    vi.mocked(useCliManagerCodexModelCatalogRegenerateMutation).mockReturnValue({
+      isPending: false,
+      mutateAsync: vi.fn().mockRejectedValue(new Error("CLI_PROXY_CODEX_CATALOG_FAILED: denied")),
+    } as any);
+    vi.mocked(useCliManagerCodexInfoQuery).mockReturnValue({
+      data: { found: true },
+      isFetching: false,
+    } as any);
+    vi.mocked(useCliManagerCodexConfigQuery).mockReturnValue({
+      data: { config_path: "/codex/config.toml" },
+      isFetching: false,
+    } as any);
+    const { result } = renderHook(() => useCliManagerPageDataModel());
+    await act(async () => {
+      await result.current.codexTabProps.regenerateCodexModelCatalog();
+    });
+    expect(logToConsole).toHaveBeenCalledWith(
+      "error",
+      "重新生成 Codex 模型目录失败",
+      expect.objectContaining({ error_code: "CLI_PROXY_CODEX_CATALOG_FAILED" })
+    );
+    expect(toast).not.toHaveBeenCalledWith("已更新 Codex 模型目录");
+  });
+
   it("keeps the saved Billing Header setting and rolls back a failed update", async () => {
     let resolveSave!: (settings: AppSettings) => void;
     const save = new Promise<AppSettings>((resolve) => {

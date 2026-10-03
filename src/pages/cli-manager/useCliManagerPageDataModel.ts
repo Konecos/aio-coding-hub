@@ -34,6 +34,7 @@ import {
   useCliManagerCodexInfoQuery,
   useCliManagerCodexModelCatalogQuery,
   useCliManagerCodexModelCatalogRefresh,
+  useCliManagerCodexModelCatalogRegenerateMutation,
   useCliManagerGeminiConfigQuery,
   useCliManagerGeminiConfigSetMutation,
   useCliManagerGeminiInfoQuery,
@@ -236,6 +237,7 @@ export function useCliManagerPageDataModel() {
   const codexConfigSetMutation = useCliManagerCodexConfigSetMutation();
   const codexConfigTomlSetMutation = useCliManagerCodexConfigTomlSetMutation();
   const refreshCodexModelCatalog = useCliManagerCodexModelCatalogRefresh();
+  const codexModelCatalogRegenerateMutation = useCliManagerCodexModelCatalogRegenerateMutation();
   const codexModelCatalogQuery = useCliManagerCodexModelCatalogQuery({
     enabled:
       tab === "codex" && codexInfoQuery.data?.found === true && codexConfigQuery.data != null,
@@ -262,7 +264,9 @@ export function useCliManagerPageDataModel() {
   const codexConfigLoading = codexConfigQuery.isFetching;
   const codexConfigTomlLoading = codexConfigTomlQuery.isFetching;
   const codexConfigTomlSaving = codexConfigTomlSetMutation.isPending;
-  const codexConfigWriting = codexConfigSetMutation.isPending || codexConfigTomlSaving;
+  const codexModelCatalogRegenerating = codexModelCatalogRegenerateMutation.isPending;
+  const codexConfigWriting =
+    codexConfigSetMutation.isPending || codexConfigTomlSaving || codexModelCatalogRegenerating;
   const codexConfigSaving = codexConfigWriting;
   const codexModelCatalogLoading = codexModelCatalogQuery.isFetching;
   const codexModelCatalogError = codexModelCatalogQuery.isError;
@@ -506,6 +510,32 @@ export function useCliManagerPageDataModel() {
       executablePath: nextInfo.executable_path,
       cliVersion: nextInfo.version,
     });
+  }
+
+  async function regenerateCodexModelCatalog() {
+    if (codexConfigWriting || commonSettingsSaving || settingsWriteBlocked) return;
+    if (codexAvailable !== "available" || !codexConfig) return;
+    try {
+      const result = await codexModelCatalogRegenerateMutation.mutateAsync({
+        configPath: codexConfig.config_path,
+        executablePath: codexInfo?.executable_path,
+        cliVersion: codexInfo?.version,
+      });
+      if (!result) return;
+      const messages = {
+        updated: "已更新 Codex 模型目录",
+        unchanged: "Codex 模型目录已是最新，无需更新",
+        not_active: "请先在首页开启 Codex 代理接管，再重新生成模型目录",
+      };
+      toast(messages[result]);
+    } catch (err) {
+      const formatted = formatActionFailureToast("重新生成 Codex 模型目录", err);
+      logToConsole("error", "重新生成 Codex 模型目录失败", {
+        error: formatted.raw,
+        error_code: formatted.error_code ?? undefined,
+      });
+      toast(formatted.toast);
+    }
   }
 
   async function refreshGeminiInfo() {
@@ -788,6 +818,7 @@ export function useCliManagerPageDataModel() {
       codexConfigTomlSaving,
       codexModelCatalogLoading,
       codexModelCatalogError,
+      codexModelCatalogRegenerating,
       codexInfo,
       codexConfig,
       codexConfigToml,
@@ -795,6 +826,7 @@ export function useCliManagerPageDataModel() {
       appSettings,
       codexHomeSettingsSaving: commonSettingsSaving || settingsWriteBlocked,
       refreshCodex,
+      regenerateCodexModelCatalog,
       openCodexConfigDir,
       persistCodexConfig,
       persistCodexConfigToml,

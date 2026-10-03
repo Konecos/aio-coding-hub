@@ -23,6 +23,20 @@ pub(crate) struct CodexCatalogEventPayload {
 static CODEX_CATALOG_REFRESH_LOCK: std::sync::OnceLock<tokio::sync::Mutex<()>> =
     std::sync::OnceLock::new();
 
+pub(crate) async fn refresh_codex_catalog<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    db: crate::db::Db,
+) -> crate::shared::error::AppResult<crate::cli_proxy::CodexCatalogRefreshResult> {
+    let _guard = CODEX_CATALOG_REFRESH_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await;
+    blocking::run("refresh_codex_model_catalog", move || {
+        crate::cli_proxy::refresh_codex_model_catalog_if_enabled(&app, &db)
+    })
+    .await
+}
+
 /// Fire-and-forget: the refresh spawns `codex debug models --bundled` (up to 20s), so commands
 /// must not wait on it. Success/failure feedback reaches the UI via the codex_catalog event.
 pub(crate) fn refresh_codex_catalog_after_routing_change(
@@ -45,15 +59,7 @@ pub(crate) fn spawn_codex_catalog_refresh<R: tauri::Runtime>(
 ) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _guard = CODEX_CATALOG_REFRESH_LOCK
-            .get_or_init(|| tokio::sync::Mutex::new(()))
-            .lock()
-            .await;
-        let refresh_app = app.clone();
-        let result = blocking::run("refresh_codex_model_catalog", move || {
-            crate::cli_proxy::refresh_codex_model_catalog_if_enabled(&refresh_app, &db)
-        })
-        .await;
+        let result = refresh_codex_catalog(app.clone(), db).await;
 
         let status = match result {
             Ok(crate::cli_proxy::CodexCatalogRefreshResult::Updated) => {

@@ -119,6 +119,48 @@ function createCodexModelCatalog(models = [createCodexModel()]) {
 }
 
 describe("components/cli-manager/tabs/CodexTab", () => {
+  it("regenerates the AIO catalog and prevents clicks while busy or editing TOML", async () => {
+    const regenerateCodexModelCatalog = vi.fn();
+    const props = {
+      codexAvailable: "available" as const,
+      codexLoading: false,
+      codexConfigLoading: false,
+      codexConfigSaving: false,
+      codexConfigTomlLoading: false,
+      codexConfigTomlSaving: false,
+      codexInfo: createCodexInfo(),
+      codexConfig: createCodexConfig(),
+      codexConfigToml: { config_path: "/codex/config.toml", exists: true, toml: "" },
+      refreshCodex: vi.fn(),
+      regenerateCodexModelCatalog,
+      openCodexConfigDir: vi.fn(),
+      persistCodexConfig: vi.fn(),
+      persistCodexConfigToml: vi.fn(),
+    };
+    const { rerender } = render(<CliManagerCodexTab {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "重新生成" }));
+    expect(regenerateCodexModelCatalog).toHaveBeenCalledTimes(1);
+
+    rerender(<CliManagerCodexTab {...props} codexModelCatalogRegenerating />);
+    expect(screen.getByRole("button", { name: "生成中…" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "生成中…" }));
+    expect(regenerateCodexModelCatalog).toHaveBeenCalledTimes(1);
+
+    rerender(<CliManagerCodexTab {...props} codexConfigSaving />);
+    expect(screen.getByRole("button", { name: "重新生成" })).toBeDisabled();
+    rerender(<CliManagerCodexTab {...props} codexHomeSettingsSaving />);
+    expect(screen.getByRole("button", { name: "重新生成" })).toBeDisabled();
+    rerender(<CliManagerCodexTab {...props} codexAvailable="unavailable" />);
+    expect(screen.getByRole("button", { name: "重新生成" })).toBeDisabled();
+    rerender(<CliManagerCodexTab {...props} />);
+    fireEvent.click(screen.getByText("高级配置（config.toml）"));
+    fireEvent.click(await screen.findByRole("button", { name: "编辑" }));
+    fireEvent.change(await screen.findByLabelText("mock-code-editor"), {
+      target: { value: 'model = "gpt-5"' },
+    });
+    expect(screen.getByRole("button", { name: "重新生成" })).toBeDisabled();
+  });
+
   it("handles sandbox confirm flow and toggles", () => {
     const persistCodexConfig = vi.fn();
     const refreshCodex = vi.fn();

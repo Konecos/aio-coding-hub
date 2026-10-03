@@ -45,7 +45,8 @@ pub struct CliProxyResult {
     pub base_origin: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, specta::Type)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum CodexCatalogRefreshResult {
     NotActive,
     Unchanged,

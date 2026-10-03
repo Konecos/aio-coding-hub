@@ -43,6 +43,18 @@ pub(crate) async fn cli_manager_codex_model_catalog_get(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn cli_manager_codex_model_catalog_regenerate(
+    app: tauri::AppHandle,
+    db_state: tauri::State<'_, crate::app_state::DbInitState>,
+) -> Result<crate::cli_proxy::CodexCatalogRefreshResult, String> {
+    let db = crate::app_state::ensure_db_ready(app.clone(), db_state.inner()).await?;
+    crate::app::provider_service::refresh_codex_catalog(app, db)
+        .await
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn cli_manager_codex_config_get(
     app: tauri::AppHandle,
 ) -> Result<codex_config::CodexConfigState, String> {

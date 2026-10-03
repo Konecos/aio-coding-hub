@@ -2474,6 +2474,22 @@ fn mapped_codex_provider_writes_catalog_and_last_mapping_removal_cleans_it() {
         false
     );
 
+    std::fs::remove_file(&catalog_path).expect("remove generated catalog");
+    let regenerate = tauri::async_runtime::block_on(
+        crate::app::provider_service::refresh_codex_catalog(handle.clone(), db.clone()),
+    )
+    .expect("manually regenerate missing catalog");
+    assert_eq!(regenerate, CodexCatalogRefreshResult::Updated);
+    let regenerated_catalog: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&catalog_path).expect("read regenerated catalog"))
+            .expect("parse regenerated catalog");
+    assert_eq!(regenerated_catalog, mapped_catalog);
+    let regenerate = tauri::async_runtime::block_on(
+        crate::app::provider_service::refresh_codex_catalog(handle.clone(), db.clone()),
+    )
+    .expect("manually regenerate current catalog");
+    assert_eq!(regenerate, CodexCatalogRefreshResult::Unchanged);
+
     crate::providers::set_enabled(&db, provider.id, false)
         .expect("disable last mapped Codex provider");
     let refresh = refresh_codex_model_catalog_if_enabled(&handle, &db)

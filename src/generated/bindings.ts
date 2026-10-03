@@ -283,6 +283,19 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async cliManagerCodexModelCatalogRegenerate(): Promise<
+    Result<CodexCatalogRefreshResult, string>
+  > {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("cli_manager_codex_model_catalog_regenerate"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
   async cliManagerCodexConfigGet(): Promise<Result<CodexConfigState, string>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("cli_manager_codex_config_get") };
@@ -2590,6 +2603,7 @@ export type CliVersionCheck = {
 };
 export type CodexCatalogEventPayload = { status: CodexCatalogEventStatus };
 export type CodexCatalogEventStatus = "updated" | "failed";
+export type CodexCatalogRefreshResult = "not_active" | "unchanged" | "updated";
 export type CodexConfigPatch = {
   model: string | null;
   approval_policy: string | null;

@@ -13,6 +13,7 @@ import {
   type CodexConfigTomlValidationError as GeneratedCodexConfigTomlValidationError,
   type CodexConfigTomlValidationResult as GeneratedCodexConfigTomlValidationResult,
   type CodexModelCatalogState as GeneratedCodexModelCatalogState,
+  type CodexCatalogRefreshResult,
   type CodexModelCapability as GeneratedCodexModelCapability,
   type CodexReasoningEffortOption as GeneratedCodexReasoningEffortOption,
   type GeminiConfigPatch as GeneratedGeminiConfigPatch,
@@ -176,6 +177,14 @@ export async function cliManagerCodexModelCatalogGet() {
       commands.cliManagerCodexModelCatalogGet() as Promise<
         GeneratedCommandResult<CodexModelCatalogState>
       >,
+  });
+}
+
+export async function cliManagerCodexModelCatalogRegenerate() {
+  return invokeGeneratedIpc<CodexCatalogRefreshResult>({
+    title: "重新生成 Codex 模型目录失败",
+    cmd: "cli_manager_codex_model_catalog_regenerate",
+    invoke: () => commands.cliManagerCodexModelCatalogRegenerate(),
   });
 }
 

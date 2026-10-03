@@ -21,6 +21,7 @@ import {
   cliManagerCodexConfigTomlSet,
   cliManagerCodexInfoGet,
   cliManagerCodexModelCatalogGet,
+  cliManagerCodexModelCatalogRegenerate,
   cliManagerGeminiInfoGet,
   cliManagerGrokConfigGet,
   cliManagerGrokConfigSet,
@@ -43,6 +44,7 @@ import {
   useCliManagerCodexInfoQuery,
   useCliManagerCodexModelCatalogQuery,
   useCliManagerCodexModelCatalogRefresh,
+  useCliManagerCodexModelCatalogRegenerateMutation,
   useCliManagerGeminiInfoQuery,
   useCliManagerGrokConfigQuery,
   useCliManagerGrokConfigSetMutation,
@@ -66,6 +68,7 @@ vi.mock("../../services/cli/cliManager", async () => {
     cliManagerCodexConfigTomlGet: vi.fn(),
     cliManagerCodexConfigTomlSet: vi.fn(),
     cliManagerCodexModelCatalogGet: vi.fn(),
+    cliManagerCodexModelCatalogRegenerate: vi.fn(),
     cliManagerGeminiInfoGet: vi.fn(),
     cliManagerGrokInfoGet: vi.fn(),
     cliManagerGrokConfigGet: vi.fn(),
@@ -512,6 +515,77 @@ describe("query/cliManager", () => {
     expect(client.getQueryData(cliManagerKeys.codexConfig())).toEqual(updated);
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: cliManagerKeys.codexConfig() });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: cliManagerKeys.codexConfigToml() });
+  });
+
+  it.each(["updated", "unchanged"] as const)(
+    "refreshes config and model capabilities after regeneration returns %s",
+    async (status) => {
+      const snapshot = {
+        configPath: "/tmp/.codex/config.toml",
+        executablePath: "/usr/bin/codex",
+        cliVersion: "0.0.0",
+      };
+      const catalog = makeCodexModelCatalogState();
+      vi.mocked(cliManagerCodexModelCatalogRegenerate).mockResolvedValue(status);
+      vi.mocked(cliManagerCodexModelCatalogGet).mockResolvedValue(catalog);
+      const client = createTestQueryClient();
+      client.setQueryData(cliManagerKeys.codexModelCatalog(snapshot), null);
+      const invalidate = vi.spyOn(client, "invalidateQueries");
+      const { result } = renderHook(() => useCliManagerCodexModelCatalogRegenerateMutation(), {
+        wrapper: createQueryWrapper(client),
+      });
+      await act(async () => {
+        expect(await result.current.mutateAsync(snapshot)).toBe(status);
+      });
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: cliManagerKeys.codexConfig() });
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: cliManagerKeys.codexConfigToml() });
+      expect(client.getQueryData(cliManagerKeys.codexModelCatalog(snapshot))).toEqual(catalog);
+    }
+  );
+
+  it("does not refresh model capabilities when Codex takeover is inactive", async () => {
+    vi.mocked(cliManagerCodexModelCatalogRegenerate).mockResolvedValue("not_active");
+    const client = createTestQueryClient();
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(() => useCliManagerCodexModelCatalogRegenerateMutation(), {
+      wrapper: createQueryWrapper(client),
+    });
+    await act(async () => {
+      expect(await result.current.mutateAsync({})).toBe("not_active");
+    });
+    expect(invalidate).not.toHaveBeenCalled();
+  });
+
+  it("discards a catalog read started before regeneration", async () => {
+    const snapshot = {
+      configPath: "/tmp/.codex/config.toml",
+      executablePath: "/usr/bin/codex",
+      cliVersion: "0.0.0",
+    };
+    const currentCatalog = makeCodexModelCatalogState();
+    let resolveOldRead!: (value: CodexModelCatalogState) => void;
+    const oldRead = new Promise<CodexModelCatalogState>((resolve) => {
+      resolveOldRead = resolve;
+    });
+    vi.mocked(cliManagerCodexModelCatalogGet)
+      .mockReturnValueOnce(oldRead)
+      .mockResolvedValueOnce(currentCatalog);
+    vi.mocked(cliManagerCodexModelCatalogRegenerate).mockResolvedValue("updated");
+    const client = createTestQueryClient();
+    const { result } = renderHook(
+      () => ({
+        catalog: useCliManagerCodexModelCatalogQuery({ snapshot }),
+        regenerate: useCliManagerCodexModelCatalogRegenerateMutation(),
+      }),
+      { wrapper: createQueryWrapper(client) }
+    );
+    await waitFor(() => expect(result.current.catalog.isFetching).toBe(true));
+    await act(async () => {
+      await result.current.regenerate.mutateAsync(snapshot);
+      resolveOldRead({ ...currentCatalog, models: [] });
+      await oldRead;
+    });
+    expect(client.getQueryData(cliManagerKeys.codexModelCatalog(snapshot))).toEqual(currentCatalog);
   });
 
   it("refreshes only the requested model catalog snapshot", async () => {

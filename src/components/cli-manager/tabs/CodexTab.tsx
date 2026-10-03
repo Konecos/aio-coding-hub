@@ -287,6 +287,7 @@ export type CliManagerCodexTabProps = {
   codexConfigTomlSaving: boolean;
   codexModelCatalogLoading?: boolean;
   codexModelCatalogError?: boolean;
+  codexModelCatalogRegenerating?: boolean;
   codexInfo: SimpleCliInfo | null;
   codexConfig: CodexConfigState | null;
   codexConfigToml: CodexConfigTomlState | null;
@@ -294,6 +295,7 @@ export type CliManagerCodexTabProps = {
   appSettings?: AppSettings | null;
   codexHomeSettingsSaving?: boolean;
   refreshCodex: () => Promise<void> | void;
+  regenerateCodexModelCatalog?: () => Promise<void> | void;
   openCodexConfigDir: () => Promise<void> | void;
   persistCodexConfig: (patch: CodexConfigPatch) => Promise<CodexConfigState | null>;
   persistCodexConfigToml: (toml: string) => Promise<boolean> | boolean;
@@ -1957,6 +1959,7 @@ export function CliManagerCodexTab({
   codexConfigTomlSaving,
   codexModelCatalogLoading = false,
   codexModelCatalogError = false,
+  codexModelCatalogRegenerating = false,
   codexInfo,
   codexConfig,
   codexConfigToml,
@@ -1964,6 +1967,7 @@ export function CliManagerCodexTab({
   appSettings,
   codexHomeSettingsSaving = false,
   refreshCodex,
+  regenerateCodexModelCatalog,
   openCodexConfigDir,
   persistCodexConfig,
   persistCodexConfigToml,
@@ -2075,6 +2079,36 @@ export function CliManagerCodexTab({
                 activeConfigDirSummaryText={activeConfigDirSummaryText}
                 openCodexConfigDir={openCodexConfigDir}
               />
+            ) : null}
+
+            {codexConfig ? (
+              <div className="rounded-xl border border-border bg-card p-4">
+                <SettingItem
+                  label="aio-codex-model-catalog.json"
+                  subtitle="根据当前供应商模型映射和能力配置重新生成。需先开启 Codex 代理接管；没有需要覆盖的模型时无需生成文件。"
+                >
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-2"
+                    disabled={
+                      loading ||
+                      saving ||
+                      codexHomeSettingsSaving ||
+                      codexModelCatalogRegenerating ||
+                      tomlDirty ||
+                      codexAvailable !== "available" ||
+                      !regenerateCodexModelCatalog
+                    }
+                    onClick={() => void regenerateCodexModelCatalog?.()}
+                  >
+                    <RefreshCw
+                      className={cn("h-3.5 w-3.5", codexModelCatalogRegenerating && "animate-spin")}
+                    />
+                    {codexModelCatalogRegenerating ? "生成中…" : "重新生成"}
+                  </Button>
+                </SettingItem>
+              </div>
             ) : null}
 
             {codexConfig && isWindowsRuntime() ? (

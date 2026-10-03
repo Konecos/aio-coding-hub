@@ -11,6 +11,7 @@ import {
   cliManagerCodexConfigTomlSet,
   cliManagerCodexInfoGet,
   cliManagerCodexModelCatalogGet,
+  cliManagerCodexModelCatalogRegenerate,
   cliManagerGeminiConfigGet,
   cliManagerGeminiConfigSet,
   cliManagerGeminiInfoGet,
@@ -110,6 +111,30 @@ export function useCliManagerCodexModelCatalogRefresh() {
     });
     await queryClient.prefetchQuery(queryOptions);
   };
+}
+
+export function useCliManagerCodexModelCatalogRegenerateMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    scope: { id: CODEX_CONFIG_MUTATION_SCOPE },
+    mutationFn: (_snapshot: CodexModelCatalogQuerySnapshot) =>
+      cliManagerCodexModelCatalogRegenerate(),
+    onSuccess: async (result, snapshot) => {
+      if (!result || result === "not_active") return;
+      const queryOptions = codexModelCatalogQueryOptions(snapshot);
+      await queryClient.cancelQueries({ queryKey: queryOptions.queryKey, exact: true });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: cliManagerKeys.codexConfig() }),
+        queryClient.invalidateQueries({ queryKey: cliManagerKeys.codexConfigToml() }),
+        queryClient.invalidateQueries({
+          queryKey: queryOptions.queryKey,
+          exact: true,
+          refetchType: "none",
+        }),
+      ]);
+      await queryClient.prefetchQuery(queryOptions);
+    },
+  });
 }
 
 export function useCliManagerCodexConfigQuery(options?: { enabled?: boolean }) {
