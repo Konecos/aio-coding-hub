@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 use tauri::Manager;
-pub const APP_DOTDIR_NAME: &str = ".aio-coding-hub";
+pub const APP_DOTDIR_NAME: &str = ".aio-coding-hub-fork";
 const APP_DOTDIR_NAME_ENV: &str = "AIO_CODING_HUB_DOTDIR_NAME";
 const TEST_HOME_DIR_ENV: &str = "AIO_CODING_HUB_TEST_HOME";
 const HOME_DIR_OVERRIDE_ENV: &str = "AIO_CODING_HUB_HOME_DIR";

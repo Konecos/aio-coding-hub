@@ -459,7 +459,7 @@ function SkillsMarketRepoDialog({ model }: { model: SkillsMarketModel }) {
     <Dialog
       open={repoDialogOpen}
       title="Skill 仓库"
-      description="启用后的仓库会参与发现。刷新发现只会更新 ~/.aio-coding-hub/skill-repos 下的缓存副本，不会动你的原始仓库。"
+      description="启用后的仓库会参与发现。刷新发现只会更新 ~/.aio-coding-hub-fork/skill-repos 下的缓存副本，不会动你的原始仓库。"
       onOpenChange={setRepoDialogOpen}
       className="max-w-3xl"
     >

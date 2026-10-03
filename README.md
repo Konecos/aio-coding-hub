@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="public/logo.jpg" width="120" alt="AIO Coding Hub Logo" />
+  <img src="public/logo.jpg" width="120" alt="AIO Coding Hub Fork Logo" />
 
-# AIO Coding Hub
+# AIO Coding Hub Fork
 
 **本地 AI CLI 统一网关** — 让 Claude Code / Codex / Gemini CLI 请求走同一个入口
 
@@ -21,7 +21,7 @@
 
 ## 为什么需要它？
 
-| 痛点 | AIO Coding Hub 的解决方案 |
+| 痛点 | AIO Coding Hub Fork 的解决方案 |
 |------|--------------------------|
 | 每个 CLI 都要单独配置 API | **统一网关** — 所有 CLI 走 `127.0.0.1` 本机入口 |
 | 上游不稳定时请求失败 | **智能 Failover** — 自动切换供应商，熔断保护 |
@@ -150,7 +150,7 @@ brew upgrade --cask aio-coding-hub
 
 **方式二：手动下载**
 
-从 [Releases](https://github.com/dyndynjyxa/aio-coding-hub/releases) 下载对应芯片的 `.zip`（Apple Silicon 选 `arm`，Intel 选 `intel`），解压后把 `AIO Coding Hub.app` 拖入「应用程序」文件夹。
+从 [Releases](https://github.com/dyndynjyxa/aio-coding-hub/releases) 下载对应芯片的 `.zip`（Apple Silicon 选 `arm`，Intel 选 `intel`），解压后把 `AIO Coding Hub Fork.app` 拖入「应用程序」文件夹。
 
 > [!IMPORTANT]
 > **首次打开提示"已损坏"或"无法验证开发者"？**
@@ -160,7 +160,7 @@ brew upgrade --cask aio-coding-hub
 > **① 移除隔离属性（推荐，一条命令）**
 >
 > ```bash
-> sudo xattr -cr "/Applications/AIO Coding Hub.app"
+> sudo xattr -cr "/Applications/AIO Coding Hub Fork.app"
 > ```
 >
 > **② 系统设置放行**
@@ -172,7 +172,7 @@ brew upgrade --cask aio-coding-hub
 > 用 ad-hoc 签名替换掉无效签名，之后系统升级也不会再提示：
 >
 > ```bash
-> sudo codesign --force --deep --sign - "/Applications/AIO Coding Hub.app"
+> sudo codesign --force --deep --sign - "/Applications/AIO Coding Hub Fork.app"
 > ```
 >
 > 以上处理只需在首次安装或手动覆盖安装后执行一次。
@@ -281,7 +281,7 @@ curl http://127.0.0.1:37123/health
 
 ```
  Claude Code ──┐
- Codex        ─┼──▶  AIO Coding Hub 网关 (127.0.0.1:37123)  ──▶  供应商 A（优先级 1）
+ Codex        ─┼──▶  AIO Coding Hub Fork 网关 (127.0.0.1:37123)  ──▶  供应商 A（优先级 1）
  Gemini CLI  ──┘     排序模板 · 熔断器 · Failover · 用量计量      ├▶  供应商 B（优先级 2）
                                                                 └▶  供应商 C（优先级 3）
 ```
@@ -294,7 +294,7 @@ curl http://127.0.0.1:37123/health
 
 **macOS 提示"已损坏，无法打开"或"无法验证开发者"？**
 
-安装包未经 Apple 签名公证，属预期行为。参见 [macOS 安装说明](#macos)，执行 `sudo xattr -cr "/Applications/AIO Coding Hub.app"` 即可。
+安装包未经 Apple 签名公证，属预期行为。参见 [macOS 安装说明](#macos)，执行 `sudo xattr -cr "/Applications/AIO Coding Hub Fork.app"` 即可。
 
 **网关端口是多少？如何确认网关在运行？**
 

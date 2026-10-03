@@ -48,7 +48,7 @@ jobs:
         shell: pwsh
         run: |
           $targetDir = "src-tauri/target/x86_64-pc-windows-msvc/release"
-          $exePath = Join-Path $targetDir "AIO Coding Hub.exe"
+          $exePath = Join-Path $targetDir "AIO Coding Hub Fork.exe"
           if (-not (Test-Path $exePath)) {
             $exePath = Join-Path $targetDir "aio-coding-hub.exe"
           }
@@ -58,7 +58,7 @@ jobs:
             exit 1
           }
 
-          $portableDir = "dev-build/AIO Coding Hub"
+          $portableDir = "dev-build/AIO Coding Hub Fork"
           New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
           Copy-Item $exePath $portableDir
 

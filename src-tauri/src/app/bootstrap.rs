@@ -20,7 +20,7 @@ fn guard_restart_storm(app: &mut tauri::App<tauri::Wry>) {
         tracing::error!("startup: restart storm detected, auto-recovery disabled for this session");
         app.dialog()
             .message(
-                "AIO Coding Hub 检测到 WebView 反复崩溃，已停止自动恢复。\n\n\
+                "AIO Coding Hub Fork 检测到 WebView 反复崩溃，已停止自动恢复。\n\n\
                  如果问题持续出现，请检查系统 WebView2 运行时是否正常。",
             )
             .title("WebView 恢复失败")

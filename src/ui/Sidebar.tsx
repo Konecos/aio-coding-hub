@@ -129,7 +129,7 @@ function SidebarHeader({
           </div>
           <div className="flex flex-col">
             <span className="text-[16px] font-extrabold tracking-tight text-sidebar-foreground">
-              AIO Coding Hub
+              AIO Coding Hub Fork
             </span>
           </div>
         </div>
@@ -464,14 +464,14 @@ export function Sidebar({ className }: SidebarProps) {
   const gatewayAriaLabel = `网关状态：${statusText}，端口 ${portText}`;
   const repoLinkLabel = hasUpdate
     ? isPortable && !devPreview.enabled
-      ? "AIO Coding Hub GitHub：发现新版本，打开下载页"
-      : "AIO Coding Hub GitHub：发现新版本，打开更新对话框"
-    : "AIO Coding Hub GitHub 仓库";
+      ? "AIO Coding Hub Fork GitHub：发现新版本，打开下载页"
+      : "AIO Coding Hub Fork GitHub：发现新版本，打开更新对话框"
+    : "AIO Coding Hub Fork GitHub 仓库";
   const repoLinkTitle = hasUpdate
     ? isPortable && !devPreview.enabled
       ? "发现新版本（portable：打开下载页）"
       : "发现新版本（点击更新）"
-    : "AIO Coding Hub GitHub 仓库";
+    : "AIO Coding Hub Fork GitHub 仓库";
 
   function handleRepoClick(event: ReactMouseEvent<HTMLAnchorElement>) {
     event.preventDefault();

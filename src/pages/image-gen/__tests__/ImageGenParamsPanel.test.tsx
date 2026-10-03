@@ -112,13 +112,17 @@ describe("pages/image-gen/ImageGenParamsPanel", () => {
 
   it("renders the storage card with directory, usage and task count", () => {
     const controller = makeController({
-      storage: { dir: "/Users/tester/.aio-coding-hub/image-gen", totalBytes: 1536, taskCount: 3 },
+      storage: {
+        dir: "/Users/tester/.aio-coding-hub-fork/image-gen",
+        totalBytes: 1536,
+        taskCount: 3,
+      },
     });
     render(<ImageGenParamsPanel controller={controller} />);
 
     expect(screen.getByRole("heading", { name: "存储" })).toBeInTheDocument();
-    const dir = screen.getByText("/Users/tester/.aio-coding-hub/image-gen");
-    expect(dir).toHaveAttribute("title", "/Users/tester/.aio-coding-hub/image-gen");
+    const dir = screen.getByText("/Users/tester/.aio-coding-hub-fork/image-gen");
+    expect(dir).toHaveAttribute("title", "/Users/tester/.aio-coding-hub-fork/image-gen");
     expect(screen.getByText("占用 1.5 KB · 3 条任务")).toBeInTheDocument();
   });
 

@@ -30,7 +30,7 @@ async fn health() -> Json<HealthResponse> {
 }
 
 async fn root() -> &'static str {
-    "AIO Coding Hub is running"
+    "AIO Coding Hub Fork is running"
 }
 
 async fn proxy_cli_any<R>(

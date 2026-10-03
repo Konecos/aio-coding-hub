@@ -120,7 +120,7 @@ fn run_protocol_with_timeout(
         "params": {
             "clientInfo": {
                 "name": "aio-coding-hub",
-                "title": "AIO Coding Hub",
+                "title": "AIO Coding Hub Fork",
                 "version": env!("CARGO_PKG_VERSION")
             },
             "capabilities": { "experimentalApi": true }

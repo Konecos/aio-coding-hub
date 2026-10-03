@@ -57,7 +57,7 @@ fn ensure_webview2_or_exit() {
     }
 
     // Show a native Win32 MessageBox (does not require WebView2).
-    let title: Vec<u16> = "AIO Coding Hub\0".encode_utf16().collect();
+    let title: Vec<u16> = "AIO Coding Hub Fork\0".encode_utf16().collect();
     let message: Vec<u16> =
         "This application requires Microsoft WebView2 Runtime.\n\nClick OK to open the download page, or Cancel to exit.\0"
             .encode_utf16()

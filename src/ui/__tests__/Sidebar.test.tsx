@@ -193,7 +193,7 @@ describe("ui/Sidebar", () => {
       </MemoryRouter>
     );
 
-    const repoLink = screen.getByRole("link", { name: "AIO Coding Hub GitHub 仓库" });
+    const repoLink = screen.getByRole("link", { name: "AIO Coding Hub Fork GitHub 仓库" });
 
     expect(repoLink).toHaveAttribute("href", AIO_REPO_URL);
   });
@@ -207,7 +207,7 @@ describe("ui/Sidebar", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole("link", { name: "AIO Coding Hub GitHub 仓库" }));
+    fireEvent.click(screen.getByRole("link", { name: "AIO Coding Hub Fork GitHub 仓库" }));
 
     await waitFor(() => {
       expect(tauriOpenUrl).toHaveBeenCalledWith(AIO_REPO_URL);
@@ -233,7 +233,7 @@ describe("ui/Sidebar", () => {
     );
 
     const updateLink = screen.getByRole("link", {
-      name: "AIO Coding Hub GitHub：发现新版本，打开更新对话框",
+      name: "AIO Coding Hub Fork GitHub：发现新版本，打开更新对话框",
     });
 
     expect(updateLink).toHaveAttribute("href", AIO_REPO_URL);
@@ -265,7 +265,7 @@ describe("ui/Sidebar", () => {
     );
 
     const updateLink = screen.getByRole("link", {
-      name: "AIO Coding Hub GitHub：发现新版本，打开下载页",
+      name: "AIO Coding Hub Fork GitHub：发现新版本，打开下载页",
     });
 
     expect(updateLink).toHaveAttribute("href", AIO_REPO_URL);
@@ -300,7 +300,7 @@ describe("ui/Sidebar", () => {
     );
 
     const updateLink = screen.getByRole("link", {
-      name: "AIO Coding Hub GitHub：发现新版本，打开更新对话框",
+      name: "AIO Coding Hub Fork GitHub：发现新版本，打开更新对话框",
     });
 
     expect(updateLink).toHaveAttribute("href", AIO_REPO_URL);

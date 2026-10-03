@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="public/logo.jpg" width="120" alt="AIO Coding Hub Logo" />
+  <img src="public/logo.jpg" width="120" alt="AIO Coding Hub Fork Logo" />
 
-# AIO Coding Hub
+# AIO Coding Hub Fork
 
 **Local AI CLI Unified Gateway** — Route Claude Code / Codex / Gemini CLI through a single entry point
 
@@ -21,7 +21,7 @@
 
 ## Why?
 
-| Problem | How AIO Coding Hub Solves It |
+| Problem | How AIO Coding Hub Fork Solves It |
 |---------|------------------------------|
 | Each CLI needs separate API config | **Unified gateway** — all CLIs route through `127.0.0.1` |
 | Upstream goes down, requests fail | **Smart failover** — auto-switch providers with circuit breaker |
@@ -150,7 +150,7 @@ brew upgrade --cask aio-coding-hub
 
 **Option 2: Manual download**
 
-Download the `.zip` matching your chip from [Releases](https://github.com/dyndynjyxa/aio-coding-hub/releases) (`arm` for Apple Silicon, `intel` for Intel), unzip, and drag `AIO Coding Hub.app` into your Applications folder.
+Download the `.zip` matching your chip from [Releases](https://github.com/dyndynjyxa/aio-coding-hub/releases) (`arm` for Apple Silicon, `intel` for Intel), unzip, and drag `AIO Coding Hub Fork.app` into your Applications folder.
 
 > [!IMPORTANT]
 > **Seeing "damaged and can't be opened" or "unverified developer" on first launch?**
@@ -160,7 +160,7 @@ Download the `.zip` matching your chip from [Releases](https://github.com/dyndyn
 > **① Remove the quarantine attribute (recommended, one command)**
 >
 > ```bash
-> sudo xattr -cr "/Applications/AIO Coding Hub.app"
+> sudo xattr -cr "/Applications/AIO Coding Hub Fork.app"
 > ```
 >
 > **② Allow via System Settings**
@@ -172,7 +172,7 @@ Download the `.zip` matching your chip from [Releases](https://github.com/dyndyn
 > Replace the invalid signature with an ad-hoc one so macOS never prompts again:
 >
 > ```bash
-> sudo codesign --force --deep --sign - "/Applications/AIO Coding Hub.app"
+> sudo codesign --force --deep --sign - "/Applications/AIO Coding Hub Fork.app"
 > ```
 >
 > You only need to do this once per install or manual re-install.
@@ -279,7 +279,7 @@ curl http://127.0.0.1:37123/health
 
 ```
  Claude Code ──┐
- Codex        ─┼──▶  AIO Coding Hub Gateway (127.0.0.1:37123)  ──▶  Provider A (priority 1)
+ Codex        ─┼──▶  AIO Coding Hub Fork Gateway (127.0.0.1:37123)  ──▶  Provider A (priority 1)
  Gemini CLI  ──┘     sort templates · circuit breaker · failover     ├▶  Provider B (priority 2)
                      · usage metering                                └▶  Provider C (priority 3)
 ```
@@ -292,7 +292,7 @@ All three CLIs send requests to the local gateway. The gateway picks a provider 
 
 **macOS says the app "is damaged" or comes from an "unverified developer"?**
 
-Expected — the packages are not Apple-signed or notarized. See the [macOS install notes](#macos); running `sudo xattr -cr "/Applications/AIO Coding Hub.app"` fixes it.
+Expected — the packages are not Apple-signed or notarized. See the [macOS install notes](#macos); running `sudo xattr -cr "/Applications/AIO Coding Hub Fork.app"` fixes it.
 
 **What port does the gateway use? How do I check it's running?**
 

@@ -37,7 +37,7 @@ body:
   - type: input
     id: app-version
     attributes:
-      label: AIO Coding Hub 版本
+      label: AIO Coding Hub Fork 版本
       description: "可在应用设置页面查看，例如: v1.2.3"
       placeholder: "v1.0.0"
     validations:

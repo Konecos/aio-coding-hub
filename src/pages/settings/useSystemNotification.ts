@@ -73,7 +73,7 @@ export function useSystemNotification() {
       const ok = await noticeSend({
         level: "info",
         title: "测试通知",
-        body: "这是一条来自 AIO Coding Hub 的系统通知",
+        body: "这是一条来自 AIO Coding Hub Fork 的系统通知",
       });
       if (!ok) {
         return;

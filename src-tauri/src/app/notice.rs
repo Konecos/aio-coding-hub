@@ -8,7 +8,7 @@ pub const NOTICE_EVENT_NAME: &str = "notice:notify";
 pub const NOTICE_TITLE_MAX_CHARS: usize = 128;
 pub const NOTICE_BODY_MAX_CHARS: usize = 4096;
 
-const NOTICE_PREFIX: &str = "AIO Coding Hub";
+const NOTICE_PREFIX: &str = "AIO Coding Hub Fork";
 
 #[derive(Debug, Clone, Copy, serde::Deserialize, serde::Serialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
@@ -117,7 +117,7 @@ mod tests {
         )
         .expect("notice should build");
 
-        assert_eq!(payload.title, "AIO Coding Hub · Saved");
+        assert_eq!(payload.title, "AIO Coding Hub Fork · Saved");
         assert_eq!(payload.body, "Done");
     }
 
@@ -130,7 +130,7 @@ mod tests {
         )
         .expect("notice should build");
 
-        assert_eq!(payload.title, "AIO Coding Hub · 提示");
+        assert_eq!(payload.title, "AIO Coding Hub Fork · 提示");
         assert_eq!(payload.body, "Ready");
     }
 
@@ -182,7 +182,7 @@ mod tests {
 
         assert_eq!(
             payload.title.chars().count(),
-            "AIO Coding Hub · ".chars().count() + 128
+            "AIO Coding Hub Fork · ".chars().count() + 128
         );
         assert_eq!(payload.body.chars().count(), 4096);
     }

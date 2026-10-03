@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AIO Coding Hub",
+  "productName": "AIO Coding Hub Fork",
   "version": "0.60.20",
-  "identifier": "io.aio.codinghub",
+  "identifier": "io.aio.codinghub.fork",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "AIO Coding Hub",
+        "title": "AIO Coding Hub Fork",
         "width": 1500,
         "height": 900,
         "titleBarStyle": "Overlay",
@@ -39,9 +39,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "resources/plugins/official/privacy-filter/**/*"
-    ]
+    "resources": ["resources/plugins/official/privacy-filter/**/*"]
   },
   "plugins": {
     "updater": {

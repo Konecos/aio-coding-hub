@@ -88,7 +88,7 @@ const CONFIGURED_CONFIG = {
 };
 
 const STORAGE_VIEW = {
-  dir: "/Users/tester/.aio-coding-hub/image-gen",
+  dir: "/Users/tester/.aio-coding-hub-fork/image-gen",
   totalBytes: 2048,
   taskCount: 3,
 };

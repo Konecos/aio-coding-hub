@@ -802,7 +802,7 @@ fn rebuild_main_window(app: &tauri::AppHandle, show: bool) -> Result<(), AppErro
             // fall back to a minimal window rather than giving up.
             let url = tauri::WebviewUrl::App("index.html".into());
             tauri::webview::WebviewWindowBuilder::new(app, MAIN_WINDOW_LABEL, url)
-                .title("AIO Coding Hub")
+                .title("AIO Coding Hub Fork")
                 .inner_size(1500.0, 900.0)
                 .visible(show)
                 .build()
@@ -928,7 +928,7 @@ fn show_restart_storm_dialog(app: &tauri::AppHandle) {
     std::thread::spawn(move || {
         app.dialog()
             .message(
-                "AIO Coding Hub 检测到 WebView 反复崩溃，已停止自动恢复。\n\n\
+                "AIO Coding Hub Fork 检测到 WebView 反复崩溃，已停止自动恢复。\n\n\
                  请手动重启应用。如果问题持续出现，请检查系统 WebView2 运行时是否正常。",
             )
             .title("WebView 恢复失败")

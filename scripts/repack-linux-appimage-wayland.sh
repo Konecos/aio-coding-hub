@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # repack-linux-appimage-wayland.sh
 #
-# Repackage an AIO Coding Hub AppImage to use system EGL/Mesa libraries
+# Repackage an AIO Coding Hub Fork AppImage to use system EGL/Mesa libraries
 # instead of the bundled ones.
 #
 # Background

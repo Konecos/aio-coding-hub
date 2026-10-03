@@ -100,7 +100,7 @@ pub fn setup_tray(app: &tauri::AppHandle) -> crate::shared::error::AppResult<()>
 
     let tray_builder = TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
-        .tooltip("AIO Coding Hub");
+        .tooltip("AIO Coding Hub Fork");
 
     #[cfg(target_os = "macos")]
     let tray_builder = tray_builder.icon_as_template(true);

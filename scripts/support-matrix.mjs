@@ -196,11 +196,11 @@ const WORKFLOW_PATHS = Object.freeze({
 
 const HOMEBREW_CASK = Object.freeze({
   token: "aio-coding-hub",
-  appName: "AIO Coding Hub.app",
-  name: "AIO Coding Hub",
+  appName: "AIO Coding Hub Fork.app",
+  name: "AIO Coding Hub Fork",
   desc: "Local AI CLI unified gateway",
   homepage: "https://github.com/dyndynjyxa/aio-coding-hub",
-  bundleIdentifier: "io.aio.codinghub",
+  bundleIdentifier: "io.aio.codinghub.fork",
 });
 
 function getAllBuildTargets() {

@@ -4,12 +4,12 @@
  *
  * Purpose:
  * - Allow running the dev app alongside an installed/running release app on the same machine.
- * - Keep dev data isolated under `~/.aio-coding-hub-dev/` for accurate testing.
+ * - Keep dev data isolated under `~/.aio-coding-hub-fork-dev/` for accurate testing.
  *
  * How it works:
  * - Ensures a local (gitignored) Tauri config overlay exists at `.local/tauri.dev.local.json`.
  * - Runs `tauri dev -c <overlay>` so dev uses a different `identifier` than the release app.
- * - Injects `AIO_CODING_HUB_DOTDIR_NAME=.aio-coding-hub-dev` so Rust stores data separately.
+ * - Injects `AIO_CODING_HUB_DOTDIR_NAME=.aio-coding-hub-fork-dev` so Rust stores data separately.
  */
 
 import { spawn } from "node:child_process";
@@ -18,8 +18,8 @@ import path, { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const APP_DOTDIR_NAME_ENV = "AIO_CODING_HUB_DOTDIR_NAME";
-const DEV_APP_DOTDIR_NAME = ".aio-coding-hub-dev";
-const DEV_TAURI_IDENTIFIER = "io.aio.codinghub.dev";
+const DEV_APP_DOTDIR_NAME = ".aio-coding-hub-fork-dev";
+const DEV_TAURI_IDENTIFIER = "io.aio.codinghub.fork.dev";
 const TAURI_CONFIG_ENV = "TAURI_CONFIG";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -40,19 +40,46 @@ function sanitizeWindowsPath(rawPath) {
 }
 
 function ensureDevOverlayFileExists() {
-  if (existsSync(overlayPath)) return;
+  if (existsSync(overlayPath)) {
+    // Upgrade the original dev identity while preserving local window settings.
+    try {
+      const overlay = JSON.parse(readFileSync(overlayPath, "utf8"));
+      let changed = false;
+      if (overlay.identifier === "io.aio.codinghub.dev") {
+        overlay.identifier = DEV_TAURI_IDENTIFIER;
+        changed = true;
+      }
+      if (overlay.productName === "AIO Coding Hub (Dev)") {
+        overlay.productName = "AIO Coding Hub Fork (Dev)";
+        changed = true;
+      }
+      for (const window of overlay.app?.windows ?? []) {
+        if (window.title === "AIO Coding Hub (Dev)") {
+          window.title = "AIO Coding Hub Fork (Dev)";
+          changed = true;
+        }
+      }
+      if (changed) {
+        writeFileSync(overlayPath, JSON.stringify(overlay, null, 2) + "\n", "utf8");
+        console.log(`[tauri:dev] Updated local overlay for Fork: ${overlayPath}`);
+      }
+    } catch {
+      // run() reports invalid overlays; leave the file available for manual repair.
+    }
+    return;
+  }
 
   mkdirSync(localDir, { recursive: true });
 
   const overlay = {
     // Note: this is an overlay merged into `src-tauri/tauri.conf.json` at runtime by the Tauri CLI.
     // It is intentionally kept in `.local/` (gitignored) so each developer can customize if needed.
-    productName: "AIO Coding Hub (Dev)",
+    productName: "AIO Coding Hub Fork (Dev)",
     identifier: DEV_TAURI_IDENTIFIER,
     app: {
       windows: [
         {
-          title: "AIO Coding Hub (Dev)",
+          title: "AIO Coding Hub Fork (Dev)",
           width: 1500,
           height: 900,
         },

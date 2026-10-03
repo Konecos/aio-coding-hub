@@ -197,7 +197,7 @@ jobs:
           $targetDir = "src-tauri/target/${{ matrix.target }}/release"
 
           # Find the built application exe, not the bundled setup package.
-          $exeName = "AIO Coding Hub.exe"
+          $exeName = "AIO Coding Hub Fork.exe"
           $exePath = Join-Path $targetDir $exeName
 
           if (-not (Test-Path $exePath)) {
@@ -212,7 +212,7 @@ jobs:
           }
 
           # Create a temp directory for the portable package
-          $portableDir = "portable-build/AIO Coding Hub"
+          $portableDir = "portable-build/AIO Coding Hub Fork"
           New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
 
           # Copy the exe

@@ -595,7 +595,7 @@ export function PluginsPage() {
       <div className="flex h-full flex-col gap-5 overflow-hidden">
         <PageHeader
           title="插件"
-          subtitle="为 AIO Coding Hub 增加本地能力。插件可以在请求发送前、响应返回后或日志保存前处理内容。"
+          subtitle="为 AIO Coding Hub Fork 增加本地能力。插件可以在请求发送前、响应返回后或日志保存前处理内容。"
           actions={
             <>
               <Button variant="secondary" onClick={openPluginDocs}>

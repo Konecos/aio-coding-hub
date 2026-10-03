@@ -52,7 +52,7 @@ function testPrintsCaskForCurrentRelease() {
     result.stdout,
     'url "https://github.com/dyndynjyxa/aio-coding-hub/releases/download/aio-coding-hub-v#{version}/aio-coding-hub-macos-#{arch}.zip"'
   );
-  assertIncludes(result.stdout, 'app "AIO Coding Hub.app"');
+  assertIncludes(result.stdout, 'app "AIO Coding Hub Fork.app"');
   assertIncludes(result.stdout, "auto_updates true");
   assertIncludes(result.stdout, "depends_on :macos");
 }
