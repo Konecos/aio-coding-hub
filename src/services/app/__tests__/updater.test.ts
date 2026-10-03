@@ -68,7 +68,7 @@ describe("services/app/updater", () => {
       version: "0.60.0",
       currentVersion: "0.59.0",
       date: "2026-06-14T15:58:48Z",
-      body: "See release: https://github.com/dyndynjyxa/aio-coding-hub/releases/tag/aio-coding-hub-v0.60.0",
+      body: "See release: https://github.com/Konecos/aio-coding-hub/releases/tag/aio-coding-hub-v0.60.0",
     } as any);
 
     const fetchMock = vi.fn().mockResolvedValue({
@@ -88,7 +88,7 @@ describe("services/app/updater", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.github.com/repos/dyndynjyxa/aio-coding-hub/releases/tags/aio-coding-hub-v0.60.0",
+      "https://api.github.com/repos/Konecos/aio-coding-hub/releases/tags/aio-coding-hub-v0.60.0",
       expect.objectContaining({
         headers: expect.objectContaining({ accept: "application/vnd.github+json" }),
       })
@@ -101,7 +101,7 @@ describe("services/app/updater", () => {
     setTauriRuntime();
 
     const fallbackBody =
-      "See release: https://github.com/dyndynjyxa/aio-coding-hub/releases/tag/aio-coding-hub-v0.60.0";
+      "See release: https://github.com/Konecos/aio-coding-hub/releases/tag/aio-coding-hub-v0.60.0";
     vi.mocked(tauriInvoke).mockResolvedValueOnce({
       rid: 4,
       version: "0.60.0",

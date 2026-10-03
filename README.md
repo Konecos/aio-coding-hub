@@ -5,8 +5,8 @@
 
 **本地 AI CLI 统一网关** — 让 Claude Code / Codex / Gemini CLI 请求走同一个入口
 
-[![Release](https://img.shields.io/github/v/release/dyndynjyxa/aio-coding-hub?style=flat-square)](https://github.com/dyndynjyxa/aio-coding-hub/releases)
-[![Downloads](https://img.shields.io/github/downloads/dyndynjyxa/aio-coding-hub/total?style=flat-square)](https://github.com/dyndynjyxa/aio-coding-hub/releases)
+[![Release](https://img.shields.io/github/v/release/Konecos/aio-coding-hub?style=flat-square)](https://github.com/Konecos/aio-coding-hub/releases)
+[![Downloads](https://img.shields.io/github/downloads/Konecos/aio-coding-hub/total?style=flat-square)](https://github.com/Konecos/aio-coding-hub/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20|%20macOS%20|%20Linux-lightgrey?style=flat-square)](#安装)
 [![Tauri](https://img.shields.io/badge/built%20with-Tauri%202-24C8DB?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app/)
@@ -119,7 +119,7 @@
 
 ## 安装
 
-前往 [Releases](https://github.com/dyndynjyxa/aio-coding-hub/releases) 下载对应平台安装包：
+前往 [Releases](https://github.com/Konecos/aio-coding-hub/releases) 下载对应平台安装包：
 
 <!-- SUPPORT_MATRIX_RELEASE_DOWNLOAD:START -->
 | 平台 | 官方发布安装包 |
@@ -137,7 +137,7 @@
 **方式一：Homebrew（推荐）**
 
 ```bash
-brew tap dyndynjyxa/aio-coding-hub
+brew tap Konecos/aio-coding-hub
 brew install --cask aio-coding-hub
 ```
 
@@ -150,7 +150,7 @@ brew upgrade --cask aio-coding-hub
 
 **方式二：手动下载**
 
-从 [Releases](https://github.com/dyndynjyxa/aio-coding-hub/releases) 下载对应芯片的 `.zip`（Apple Silicon 选 `arm`，Intel 选 `intel`），解压后把 `AIO Coding Hub Fork.app` 拖入「应用程序」文件夹。
+从 [Releases](https://github.com/Konecos/aio-coding-hub/releases) 下载对应芯片的 `.zip`（Apple Silicon 选 `arm`，Intel 选 `intel`），解压后把 `AIO Coding Hub Fork.app` 拖入「应用程序」文件夹。
 
 > [!IMPORTANT]
 > **首次打开提示"已损坏"或"无法验证开发者"？**
@@ -179,14 +179,14 @@ brew upgrade --cask aio-coding-hub
 
 ### Windows
 
-从 [Releases](https://github.com/dyndynjyxa/aio-coding-hub/releases) 下载：
+从 [Releases](https://github.com/Konecos/aio-coding-hub/releases) 下载：
 
 - `.msi` — 标准安装包，支持自动更新
 - `-portable.zip` — 免安装便携版，解压即用
 
 ### Linux
 
-从 [Releases](https://github.com/dyndynjyxa/aio-coding-hub/releases) 下载 `.deb`（Debian / Ubuntu）或 `.AppImage`（通用）。
+从 [Releases](https://github.com/Konecos/aio-coding-hub/releases) 下载 `.deb`（Debian / Ubuntu）或 `.AppImage`（通用）。
 
 **Arch Linux（AUR，推荐）** — 使用系统库，兼容性最好：
 
@@ -199,7 +199,7 @@ yay -S aio-coding-hub-bin
 <details>
 <summary>Wayland 白屏 / 启动崩溃排查</summary>
 
-应用在 Wayland 下启动时会自动检测并注入 `WEBKIT_DISABLE_COMPOSITING_MODE=1` 以避免 EGL 冲突崩溃（见 [issue #93](https://github.com/dyndynjyxa/aio-coding-hub/issues/93)）。
+应用在 Wayland 下启动时会自动检测并注入 `WEBKIT_DISABLE_COMPOSITING_MODE=1` 以避免 EGL 冲突崩溃（见 [issue #93](https://github.com/Konecos/aio-coding-hub/issues/93)）。
 若仍遇到白屏，可改用 Release 中附带的 `*-wayland.AppImage`（已剥离内置 EGL/Mesa 库，使用系统版本）：
 
 ```bash
@@ -229,7 +229,7 @@ sudo apt-get install -y libasound2-dev libwebkit2gtk-4.1-dev libappindicator3-de
 </details>
 
 ```bash
-git clone https://github.com/dyndynjyxa/aio-coding-hub.git
+git clone https://github.com/Konecos/aio-coding-hub.git
 cd aio-coding-hub
 pnpm install
 
@@ -378,10 +378,10 @@ pnpm tauri:test            # 后端测试
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=dyndynjyxa%2Faio-coding-hub&type=timeline&legend=top-left">
+<a href="https://www.star-history.com/?repos=Konecos%2Faio-coding-hub&type=timeline&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=dyndynjyxa/aio-coding-hub&type=timeline&theme=dark&legend=top-left&sealed_token=GCUJTl6mc9Z0XD_6vNlnVhHwbUHgJZ1Ke6sNRBzJu2GU35E8dGHW34tYX5JdQu7HQd0hPre_QOVtS6SxKpamhOR99KHHP94zCbjmcvpomr0IL-E-VS3TnHEBW_tAUBAxO-E9veh6RL78Zt1Ki1xEYCiBQvNQPQ-XaBne28yyuaYXlZtpRIyPUJSUqJpM" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=dyndynjyxa/aio-coding-hub&type=timeline&legend=top-left&sealed_token=GCUJTl6mc9Z0XD_6vNlnVhHwbUHgJZ1Ke6sNRBzJu2GU35E8dGHW34tYX5JdQu7HQd0hPre_QOVtS6SxKpamhOR99KHHP94zCbjmcvpomr0IL-E-VS3TnHEBW_tAUBAxO-E9veh6RL78Zt1Ki1xEYCiBQvNQPQ-XaBne28yyuaYXlZtpRIyPUJSUqJpM" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=dyndynjyxa/aio-coding-hub&type=timeline&legend=top-left&sealed_token=GCUJTl6mc9Z0XD_6vNlnVhHwbUHgJZ1Ke6sNRBzJu2GU35E8dGHW34tYX5JdQu7HQd0hPre_QOVtS6SxKpamhOR99KHHP94zCbjmcvpomr0IL-E-VS3TnHEBW_tAUBAxO-E9veh6RL78Zt1Ki1xEYCiBQvNQPQ-XaBne28yyuaYXlZtpRIyPUJSUqJpM" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Konecos/aio-coding-hub&type=timeline&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Konecos/aio-coding-hub&type=timeline&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Konecos/aio-coding-hub&type=timeline&legend=top-left" />
  </picture>
 </a>

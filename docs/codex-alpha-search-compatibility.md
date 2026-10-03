@@ -16,7 +16,7 @@
 
 普通 Responses、CX2CC、供应商资格检查、强制路由、熔断、失败重试及计费继续沿用原逻辑。本次不引入 PAT fallback、搜索能力探测或新的错误健康度策略。
 
-参考 [issue #378](https://github.com/dyndynjyxa/aio-coding-hub/issues/378) 和 [sub2api 的独立搜索实现](https://github.com/Wei-Shaw/sub2api/blob/9a62841fd124d026cf3694fcf9b79e98addcdbdc/backend/internal/service/openai_alpha_search.go)。
+参考 [issue #378](https://github.com/Konecos/aio-coding-hub/issues/378) 和 [sub2api 的独立搜索实现](https://github.com/Wei-Shaw/sub2api/blob/9a62841fd124d026cf3694fcf9b79e98addcdbdc/backend/internal/service/openai_alpha_search.go)。
 
 ## 自动验收
 

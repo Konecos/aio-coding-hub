@@ -7,13 +7,13 @@ This project generates the Homebrew Cask from the release support matrix, then o
 Create the tap repository expected by the README command:
 
 ```bash
-gh repo create dyndynjyxa/homebrew-aio-coding-hub --public
+gh repo create Konecos/homebrew-aio-coding-hub --public
 ```
 
 Then configure this repository:
 
 - Secret `HOMEBREW_TAP_TOKEN`: a token that can push to the tap repository.
-- Optional variable `HOMEBREW_TAP_REPOSITORY`: defaults to `dyndynjyxa/homebrew-aio-coding-hub`.
+- Optional variable `HOMEBREW_TAP_REPOSITORY`: defaults to `Konecos/homebrew-aio-coding-hub`.
 
 The tap repository should contain the generated file at:
 
@@ -28,7 +28,7 @@ Use the latest release asset digests:
 ```bash
 node scripts/support-matrix.mjs homebrew-cask \
   --tag aio-coding-hub-v0.60.4 \
-  --repo dyndynjyxa/aio-coding-hub \
+  --repo Konecos/aio-coding-hub \
   --macos-arm-sha256 6b126f39ec625e97d182301fafcbfff81ce6f332e297880aef2b0eab0a3c0c4a \
   --macos-intel-sha256 18f376bc6266e8cef4fb3978240ba0247c56b703370f6a95269443c2adbbbcc6 \
   --output Casks/aio-coding-hub.rb

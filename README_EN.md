@@ -5,8 +5,8 @@
 
 **Local AI CLI Unified Gateway** — Route Claude Code / Codex / Gemini CLI through a single entry point
 
-[![Release](https://img.shields.io/github/v/release/dyndynjyxa/aio-coding-hub?style=flat-square)](https://github.com/dyndynjyxa/aio-coding-hub/releases)
-[![Downloads](https://img.shields.io/github/downloads/dyndynjyxa/aio-coding-hub/total?style=flat-square)](https://github.com/dyndynjyxa/aio-coding-hub/releases)
+[![Release](https://img.shields.io/github/v/release/Konecos/aio-coding-hub?style=flat-square)](https://github.com/Konecos/aio-coding-hub/releases)
+[![Downloads](https://img.shields.io/github/downloads/Konecos/aio-coding-hub/total?style=flat-square)](https://github.com/Konecos/aio-coding-hub/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20|%20macOS%20|%20Linux-lightgrey?style=flat-square)](#installation)
 [![Tauri](https://img.shields.io/badge/built%20with-Tauri%202-24C8DB?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app/)
@@ -119,7 +119,7 @@ Plugin authors should start from the [Plugin Developer Guide](docs/plugins/READM
 
 ## Installation
 
-Go to [Releases](https://github.com/dyndynjyxa/aio-coding-hub/releases) and download for your platform:
+Go to [Releases](https://github.com/Konecos/aio-coding-hub/releases) and download for your platform:
 
 <!-- SUPPORT_MATRIX_RELEASE_DOWNLOAD:START -->
 | Platform | Official release packages |
@@ -137,7 +137,7 @@ The official support matrix only covers those four targets. `mac:universal` and 
 **Option 1: Homebrew (recommended)**
 
 ```bash
-brew tap dyndynjyxa/aio-coding-hub
+brew tap Konecos/aio-coding-hub
 brew install --cask aio-coding-hub
 ```
 
@@ -150,7 +150,7 @@ brew upgrade --cask aio-coding-hub
 
 **Option 2: Manual download**
 
-Download the `.zip` matching your chip from [Releases](https://github.com/dyndynjyxa/aio-coding-hub/releases) (`arm` for Apple Silicon, `intel` for Intel), unzip, and drag `AIO Coding Hub Fork.app` into your Applications folder.
+Download the `.zip` matching your chip from [Releases](https://github.com/Konecos/aio-coding-hub/releases) (`arm` for Apple Silicon, `intel` for Intel), unzip, and drag `AIO Coding Hub Fork.app` into your Applications folder.
 
 > [!IMPORTANT]
 > **Seeing "damaged and can't be opened" or "unverified developer" on first launch?**
@@ -179,14 +179,14 @@ Download the `.zip` matching your chip from [Releases](https://github.com/dyndyn
 
 ### Windows
 
-Download from [Releases](https://github.com/dyndynjyxa/aio-coding-hub/releases):
+Download from [Releases](https://github.com/Konecos/aio-coding-hub/releases):
 
 - `.msi` — standard installer with auto-update support
 - `-portable.zip` — portable version, unzip and run
 
 ### Linux
 
-Download `.deb` (Debian / Ubuntu) or `.AppImage` (universal) from [Releases](https://github.com/dyndynjyxa/aio-coding-hub/releases).
+Download `.deb` (Debian / Ubuntu) or `.AppImage` (universal) from [Releases](https://github.com/Konecos/aio-coding-hub/releases).
 
 **Arch Linux (AUR, recommended)** — uses system libraries, best compatibility:
 
@@ -200,7 +200,7 @@ yay -S aio-coding-hub-bin
 <summary>Wayland blank window / startup crash</summary>
 
 The app automatically detects Wayland sessions and sets `WEBKIT_DISABLE_COMPOSITING_MODE=1`
-to prevent EGL display initialisation crashes (see [issue #93](https://github.com/dyndynjyxa/aio-coding-hub/issues/93)).
+to prevent EGL display initialisation crashes (see [issue #93](https://github.com/Konecos/aio-coding-hub/issues/93)).
 If you still see a blank white window, use the `*-wayland.AppImage` artifact from the Release page
 (bundled EGL/Mesa libraries stripped; system versions are used instead):
 
@@ -231,7 +231,7 @@ sudo apt-get install -y libasound2-dev libwebkit2gtk-4.1-dev libappindicator3-de
 </details>
 
 ```bash
-git clone https://github.com/dyndynjyxa/aio-coding-hub.git
+git clone https://github.com/Konecos/aio-coding-hub.git
 cd aio-coding-hub
 pnpm install
 
@@ -378,10 +378,10 @@ Inspired by these excellent open-source projects:
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=dyndynjyxa%2Faio-coding-hub&type=timeline&legend=top-left">
+<a href="https://www.star-history.com/?repos=Konecos%2Faio-coding-hub&type=timeline&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=dyndynjyxa/aio-coding-hub&type=timeline&theme=dark&legend=top-left&sealed_token=jaHZDCqFyRK8pFxbpl9LPEq1w0XeHW5ZgEPgz0v-lA3dld9oQHaLo4PhBHoeCCHj0x2SQ4rFcl01feYvK7sW_pbwG6MhN3N1-v9AURRKgU-CuPtkj795d-0XP1dSGdzM1LNi2C5U3O4xiecboJnF3JihPmYap63V23nedzYGqGK_NSpNAN0xU97EoRrO" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=dyndynjyxa/aio-coding-hub&type=timeline&legend=top-left&sealed_token=jaHZDCqFyRK8pFxbpl9LPEq1w0XeHW5ZgEPgz0v-lA3dld9oQHaLo4PhBHoeCCHj0x2SQ4rFcl01feYvK7sW_pbwG6MhN3N1-v9AURRKgU-CuPtkj795d-0XP1dSGdzM1LNi2C5U3O4xiecboJnF3JihPmYap63V23nedzYGqGK_NSpNAN0xU97EoRrO" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=dyndynjyxa/aio-coding-hub&type=timeline&legend=top-left&sealed_token=jaHZDCqFyRK8pFxbpl9LPEq1w0XeHW5ZgEPgz0v-lA3dld9oQHaLo4PhBHoeCCHj0x2SQ4rFcl01feYvK7sW_pbwG6MhN3N1-v9AURRKgU-CuPtkj795d-0XP1dSGdzM1LNi2C5U3O4xiecboJnF3JihPmYap63V23nedzYGqGK_NSpNAN0xU97EoRrO" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Konecos/aio-coding-hub&type=timeline&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Konecos/aio-coding-hub&type=timeline&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Konecos/aio-coding-hub&type=timeline&legend=top-left" />
  </picture>
 </a>

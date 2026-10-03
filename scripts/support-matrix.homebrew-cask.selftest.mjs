@@ -29,7 +29,7 @@ function testPrintsCaskForCurrentRelease() {
     "--tag",
     "aio-coding-hub-v0.60.4",
     "--repo",
-    "dyndynjyxa/aio-coding-hub",
+    "Konecos/aio-coding-hub",
     "--macos-arm-sha256",
     "6b126f39ec625e97d182301fafcbfff81ce6f332e297880aef2b0eab0a3c0c4a",
     "--macos-intel-sha256",
@@ -50,7 +50,7 @@ function testPrintsCaskForCurrentRelease() {
   );
   assertIncludes(
     result.stdout,
-    'url "https://github.com/dyndynjyxa/aio-coding-hub/releases/download/aio-coding-hub-v#{version}/aio-coding-hub-macos-#{arch}.zip"'
+    'url "https://github.com/Konecos/aio-coding-hub/releases/download/aio-coding-hub-v#{version}/aio-coding-hub-macos-#{arch}.zip"'
   );
   assertIncludes(result.stdout, 'app "AIO Coding Hub Fork.app"');
   assertIncludes(result.stdout, "auto_updates true");
@@ -66,7 +66,7 @@ function testWritesCaskToOutputPath() {
       "--tag",
       "aio-coding-hub-v0.60.4",
       "--repo",
-      "dyndynjyxa/aio-coding-hub",
+      "Konecos/aio-coding-hub",
       "--macos-arm-sha256",
       "6b126f39ec625e97d182301fafcbfff81ce6f332e297880aef2b0eab0a3c0c4a",
       "--macos-intel-sha256",
@@ -87,7 +87,7 @@ function testRequiresMacosHashes() {
     "--tag",
     "aio-coding-hub-v0.60.4",
     "--repo",
-    "dyndynjyxa/aio-coding-hub",
+    "Konecos/aio-coding-hub",
     "--macos-arm-sha256",
     "6b126f39ec625e97d182301fafcbfff81ce6f332e297880aef2b0eab0a3c0c4a",
   ]);

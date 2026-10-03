@@ -199,7 +199,7 @@ const HOMEBREW_CASK = Object.freeze({
   appName: "AIO Coding Hub Fork.app",
   name: "AIO Coding Hub Fork",
   desc: "Local AI CLI unified gateway",
-  homepage: "https://github.com/dyndynjyxa/aio-coding-hub",
+  homepage: "https://github.com/Konecos/aio-coding-hub",
   bundleIdentifier: "io.aio.codinghub.fork",
 });
 
@@ -421,7 +421,7 @@ function buildHomebrewCask({ tag, repo, macosArmSha256, macosIntelSha256 }) {
   const intelSha256 = normalizeSha256(macosIntelSha256, "macOS Intel zip");
 
   return [
-    "# This file is generated from dyndynjyxa/aio-coding-hub.",
+    "# This file is generated from Konecos/aio-coding-hub.",
     "# Update it by running `node scripts/support-matrix.mjs homebrew-cask` in the source repo.",
     `cask "${HOMEBREW_CASK.token}" do`,
     '  arch arm: "arm", intel: "intel"',

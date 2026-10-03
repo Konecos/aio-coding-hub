@@ -103,7 +103,7 @@ const TRUST_EVENT_TYPES = new Set([
 ]);
 
 const PLUGIN_DOCS_URL =
-  "https://github.com/dyndynjyxa/aio-coding-hub/blob/main/docs/plugins/README.md";
+  "https://github.com/Konecos/aio-coding-hub/blob/main/docs/plugins/README.md";
 
 async function runPluginAction(action: string, task: () => Promise<unknown>) {
   try {
