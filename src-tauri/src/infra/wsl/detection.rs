@@ -256,12 +256,6 @@ pub fn normalize_distro(distro: &str) -> AppResult<String> {
     normalize_detected_distro(distro, &detection.distros)
 }
 
-/// Validate that a distro name is in the detected WSL distros list.
-pub fn validate_distro(distro: &str) -> AppResult<()> {
-    normalize_distro(distro)?;
-    Ok(())
-}
-
 pub fn detect() -> WslDetection {
     let mut out = WslDetection {
         detected: false,

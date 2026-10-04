@@ -312,11 +312,6 @@ pub(super) fn run_wsl_bash_script_capture(distro: &str, script: &str) -> AppResu
     Err(wsl_error_from_output(&output))
 }
 
-/// Read a file from WSL using base64 encoding. Returns None if file does not exist.
-pub(super) fn read_wsl_file(distro: &str, path_expr: &str) -> AppResult<Option<Vec<u8>>> {
-    read_wsl_file_inner(distro, path_expr, None)
-}
-
 pub(super) fn read_wsl_file_with_max_len(
     distro: &str,
     path_expr: &str,

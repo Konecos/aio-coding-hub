@@ -25,7 +25,6 @@ mod tests_mod;
 
 pub use detection::{
     detect, host_ipv4_best_effort, normalize_distro, resolve_wsl_home_unc, resolve_wsl_host,
-    validate_distro,
 };
 pub use manifest::{restore_wsl_clients, startup_repair_wsl_manifests};
 pub use status::{configure_clients, get_config_status};

@@ -1,7 +1,6 @@
 //! WSL config status validation and the main configure_clients orchestrator.
 
 use crate::settings;
-use crate::shared::error::AppResult;
 use std::io::Read;
 use std::process::{ExitStatus, Stdio};
 use std::thread::JoinHandle;
