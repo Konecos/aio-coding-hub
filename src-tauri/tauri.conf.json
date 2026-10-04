@@ -46,7 +46,7 @@
       "endpoints": [
         "https://github.com/Konecos/aio-coding-hub/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYzQzM1RUIxM0I1MzQxNjQKUldSa1FWTTdzVjdEWXdCNE5mbGZHTWFNczZrT1UrMzZPdjJRWldHTlQ3WnZIV3dEM0U1S1BFaWEK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDA4NTc3MUVCN0VCQzFGRjMKUldUekg3eCs2M0ZYQ0pGYWw2NXp1RWEwOG1Dd3ZFRWJIR0pNZ1c1c25CU2FWUTB2U3k2NysrZ3UK",
       "windows": {
         "installMode": "passive"
       }
