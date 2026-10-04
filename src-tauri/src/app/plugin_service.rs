@@ -3549,6 +3549,11 @@ INSERT INTO plugins (
             ])
         );
 
+        // Drop the plugin pipeline and its child processes before the Tokio runtime.
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         let pipeline = GatewayPluginPipeline::for_tests(
             active,
             Arc::new(
@@ -3558,10 +3563,6 @@ INSERT INTO plugins (
             ),
             GatewayPluginPipelineConfig::default(),
         );
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
         let output = rt
             .block_on(
                 pipeline.run_request_hook(GatewayRequestHookInput {
@@ -3644,6 +3645,11 @@ INSERT INTO plugins (
             ])
         );
 
+        // Drop the plugin pipeline and its child processes before the Tokio runtime.
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         let pipeline = GatewayPluginPipeline::for_tests(
             active,
             Arc::new(
@@ -3653,10 +3659,6 @@ INSERT INTO plugins (
             ),
             GatewayPluginPipelineConfig::default(),
         );
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
         let output = rt
             .block_on(
                 pipeline.run_request_hook(GatewayRequestHookInput {
