@@ -98,6 +98,18 @@ fn caps_bodies_and_preserves_binary_bytes_with_nuls() {
             .unwrap(),
         vec![0, 1, 2, 3, 4]
     );
+    store
+        .conn
+        .execute(
+            "UPDATE events SET metadata='通信' WHERE trace_id='binary'",
+            [],
+        )
+        .unwrap();
+    assert_eq!(
+        store.snapshot(0).unwrap().stored_bytes,
+        11,
+        "metadata must count UTF-8 bytes, not characters"
+    );
     seed(&store, "large");
     store
         .capture(Message::Chunk(

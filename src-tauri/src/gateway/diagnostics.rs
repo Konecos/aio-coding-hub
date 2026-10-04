@@ -141,7 +141,7 @@ impl Store {
         let mut size: i64 = self
             .conn
             .query_row(
-                "SELECT COALESCE(SUM(length(body)+length(metadata)),0) FROM events",
+                "SELECT COALESCE(SUM(length(body)+length(CAST(metadata AS BLOB))),0) FROM events",
                 [],
                 |r| r.get(0),
             )
@@ -151,7 +151,7 @@ impl Store {
             size = self
                 .conn
                 .query_row(
-                    "SELECT COALESCE(SUM(length(body)+length(metadata)),0) FROM events",
+                    "SELECT COALESCE(SUM(length(body)+length(CAST(metadata AS BLOB))),0) FROM events",
                     [],
                     |r| r.get(0),
                 )
@@ -180,7 +180,7 @@ impl Store {
         let stored_bytes = self
             .conn
             .query_row(
-                "SELECT COALESCE(SUM(length(body)+length(metadata)),0) FROM events",
+                "SELECT COALESCE(SUM(length(body)+length(CAST(metadata AS BLOB))),0) FROM events",
                 [],
                 |r| r.get(0),
             )
