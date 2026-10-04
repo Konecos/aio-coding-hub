@@ -6,7 +6,11 @@ import {
   useDiagnosticsEvents,
   useDiagnosticsSnapshot,
 } from "../../query/diagnostics";
-import type { DiagnosticEvent } from "../../services/gateway/diagnostics";
+import {
+  DEFAULT_DIAGNOSTIC_STORAGE_BYTES,
+  MIN_DIAGNOSTIC_STORAGE_BYTES,
+  type DiagnosticEvent,
+} from "../../services/gateway/diagnostics";
 import { writeDesktopClipboardText } from "../../services/desktop/clipboard";
 import { isDesktopRuntime } from "../../services/desktop/runtime";
 import { Button } from "../../ui/Button";
@@ -53,7 +57,12 @@ function RetentionControl() {
           disabled={!snapshot.data || configure.isPending}
           onCheckedChange={(enabled) =>
             configure.mutate(
-              { enabled, days: snapshot.data?.retention_days ?? 15 },
+              {
+                enabled,
+                days: snapshot.data?.retention_days ?? 15,
+                storageLimitBytes:
+                  snapshot.data?.storage_limit_bytes ?? DEFAULT_DIAGNOSTIC_STORAGE_BYTES,
+              },
               { onError: (error) => toast.error(errorText(error)) }
             )
           }
@@ -79,6 +88,7 @@ export function DiagnosticCommunicationDialog({
   const [live, setLive] = useState(true);
   const [selectedTrace, setSelectedTrace] = useState<string | null>(initialTraceId ?? null);
   const [daysDraft, setDaysDraft] = useState<string | null>(null);
+  const [capacityDraft, setCapacityDraft] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const snapshot = useDiagnosticsSnapshot(open && live);
   const traceId = selectedTrace ?? snapshot.data?.traces[0]?.trace_id ?? null;
@@ -90,6 +100,12 @@ export function DiagnosticCommunicationDialog({
   const clear = useDiagnosticsClear();
   const days = daysDraft ?? String(snapshot.data?.retention_days ?? 15);
   const validDays = /^\d+$/.test(days) && Number(days) >= 1 && Number(days) <= 365;
+  const capacity =
+    capacityDraft ??
+    String((snapshot.data?.storage_limit_bytes ?? DEFAULT_DIAGNOSTIC_STORAGE_BYTES) / 1024 ** 3);
+  const storageLimitBytes = Math.round(Number(capacity) * 1024 ** 3);
+  const validCapacity =
+    Number.isSafeInteger(storageLimitBytes) && storageLimitBytes >= MIN_DIAGNOSTIC_STORAGE_BYTES;
   const busy = configure.isPending || clear.isPending;
 
   async function copy() {
@@ -97,7 +113,11 @@ export function DiagnosticCommunicationDialog({
       await writeDesktopClipboardText(
         JSON.stringify({ trace_id: traceId, events: events.data ?? [] }, null, 2)
       );
-      toast.success("已复制通信内容");
+      toast.success(
+        events.data?.some((event) => event.preview_truncated)
+          ? "已复制通信预览，完整正文请使用保存原始正文"
+          : "已复制通信内容"
+      );
     } catch (error) {
       toast.error(errorText(error));
     }
@@ -119,7 +139,12 @@ export function DiagnosticCommunicationDialog({
               disabled={!snapshot.data || busy}
               onCheckedChange={(enabled) =>
                 configure.mutate(
-                  { enabled, days: snapshot.data?.retention_days ?? 15 },
+                  {
+                    enabled,
+                    days: snapshot.data?.retention_days ?? 15,
+                    storageLimitBytes:
+                      snapshot.data?.storage_limit_bytes ?? DEFAULT_DIAGNOSTIC_STORAGE_BYTES,
+                  },
                   { onError: (error) => toast.error(errorText(error)) }
                 )
               }
@@ -138,16 +163,29 @@ export function DiagnosticCommunicationDialog({
               onChange={(e) => setDaysDraft(e.target.value)}
             />
           </label>
+          <label className="flex items-center gap-2 text-sm">
+            容量上限（GiB）
+            <Input
+              aria-label="驻留容量（GiB）"
+              type="number"
+              min={1 / 1024}
+              step={0.1}
+              className="w-24"
+              value={capacity}
+              onChange={(e) => setCapacityDraft(e.target.value)}
+            />
+          </label>
           <Button
             size="sm"
-            disabled={!snapshot.data || !validDays || busy}
+            disabled={!snapshot.data || !validDays || !validCapacity || busy}
             onClick={() =>
               configure.mutate(
-                { enabled: snapshot.data?.enabled ?? false, days: Number(days) },
+                { enabled: snapshot.data?.enabled ?? false, days: Number(days), storageLimitBytes },
                 {
                   onSuccess: () => {
                     setDaysDraft(null);
-                    toast.success("驻留时间已保存");
+                    setCapacityDraft(null);
+                    toast.success("驻留设置已保存");
                   },
                   onError: (error) => toast.error(errorText(error)),
                 }
@@ -174,6 +212,11 @@ export function DiagnosticCommunicationDialog({
         {!validDays && (
           <p role="alert" className="text-xs text-red-500">
             驻留时间必须为 1–365 天的整数。
+          </p>
+        )}
+        {!validCapacity && (
+          <p role="alert" className="text-xs text-red-500">
+            驻留容量必须至少为 1 MiB（1/1024 GiB），且为有效数字。
           </p>
         )}
         {confirmClear && (
@@ -207,9 +250,14 @@ export function DiagnosticCommunicationDialog({
         )}
         <p className="text-xs text-muted-foreground">
           {live ? "每秒刷新" : "刷新已暂停"} · 已存储{" "}
-          {((snapshot.data?.stored_bytes ?? 0) / 1024 / 1024).toFixed(2)} MiB · 每条正文最多 64
-          KiB，每请求最多 64 条 · 总量最多 50 MiB / 1000 个请求，超限清理最旧内容；下方显示最近 100
-          个请求。
+          {((snapshot.data?.stored_bytes ?? 0) / 1024 ** 3).toFixed(2)} GiB / 容量上限{" "}
+          {(
+            (snapshot.data?.storage_limit_bytes ?? DEFAULT_DIAGNOSTIC_STORAGE_BYTES) /
+            1024 ** 3
+          ).toLocaleString(undefined, { maximumFractionDigits: 3 })}{" "}
+          GiB · 正文不设单条采集大小上限，每请求最多 64 条 · 最多 1000
+          个请求，超限清理最旧内容；下方显示最近 100 个请求。大正文仅加载开头 1 MiB
+          预览，可保存完整驻留正文。
         </p>
         {snapshot.error && (
           <p role="alert" className="text-sm text-red-500">

@@ -21,8 +21,16 @@ export function DiagnosticBody({ event, traceId }: { event: DiagnosticEvent; tra
       metadata: event.metadata,
       complete: event.complete,
       truncated: event.truncated,
+      preview_truncated: event.preview_truncated,
     }),
-    [event.body, event.body_encoding, event.metadata, event.complete, event.truncated]
+    [
+      event.body,
+      event.body_encoding,
+      event.metadata,
+      event.complete,
+      event.truncated,
+      event.preview_truncated,
+    ]
   );
   const [result, setResult] = useState<{
     source: typeof source;
@@ -114,7 +122,7 @@ export function DiagnosticBody({ event, traceId }: { event: DiagnosticEvent; tra
             </Button>
             <span className="text-muted-foreground">
               {preview?.compression ? `${preview.compression} 压缩 · ` : ""}
-              {preview ? `已保留 ${preview.bytes.length} 字节` : "二进制正文"}
+              {preview ? `已驻留 ${event.retained_bytes} 字节` : "二进制正文"}
             </span>
           </>
         )}
@@ -130,6 +138,11 @@ export function DiagnosticBody({ event, traceId }: { event: DiagnosticEvent; tra
           {saving ? "保存中…" : "保存原始正文"}
         </Button>
       </div>
+      {event.preview_truncated && (
+        <p className="text-muted-foreground">
+          当前仅预览正文开头，已驻留 {event.retained_bytes} 字节；保存原始正文可导出完整驻留内容。
+        </p>
+      )}
       {preview?.note && <p className="text-amber-600">{preview.note}</p>}
       {current?.error && (
         <p role="alert" className="text-amber-600">

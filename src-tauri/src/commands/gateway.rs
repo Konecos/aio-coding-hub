@@ -90,10 +90,11 @@ pub(crate) async fn gateway_diagnostics_configure(
     app: tauri::AppHandle,
     enabled: bool,
     retention_days: u32,
+    storage_limit_bytes: i64,
 ) -> Result<(), String> {
     crate::blocking::run("diagnostics_configure", move || {
         gateway::diagnostics::init(&app)?;
-        gateway::diagnostics::configure(enabled, retention_days)
+        gateway::diagnostics::configure(enabled, retention_days, storage_limit_bytes)
     })
     .await
     .map_err(Into::into)

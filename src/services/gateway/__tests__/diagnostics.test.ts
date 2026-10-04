@@ -22,16 +22,23 @@ vi.mock("../../consoleLog", () => ({ logToConsole: vi.fn() }));
 describe("diagnostics IPC", () => {
   it("rejects invalid retention days before invoking IPC", async () => {
     for (const days of [0, 366, 1.5, NaN, Infinity]) {
-      await expect(diagnosticsConfigure(true, days)).rejects.toThrow("1–365");
+      await expect(diagnosticsConfigure(true, days, 5 * 1024 ** 3)).rejects.toThrow("1–365");
     }
     expect(commands.gatewayDiagnosticsConfigure).not.toHaveBeenCalled();
   });
   it("accepts successful void results and forwards arguments", async () => {
     vi.mocked(commands.gatewayDiagnosticsConfigure).mockResolvedValue({ status: "ok", data: null });
     vi.mocked(commands.gatewayDiagnosticsClear).mockResolvedValue({ status: "ok", data: null });
-    await expect(diagnosticsConfigure(true, 15)).resolves.toBe(true);
-    expect(commands.gatewayDiagnosticsConfigure).toHaveBeenCalledWith(true, 15);
+    await expect(diagnosticsConfigure(true, 15, 5 * 1024 ** 3)).resolves.toBe(true);
+    expect(commands.gatewayDiagnosticsConfigure).toHaveBeenCalledWith(true, 15, 5 * 1024 ** 3);
     await expect(diagnosticsClear()).resolves.toBe(true);
+  });
+
+  it("rejects invalid storage capacities before invoking IPC", async () => {
+    for (const bytes of [0, -1, 1024, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+      await expect(diagnosticsConfigure(true, 15, bytes)).rejects.toThrow("驻留容量");
+    }
+    expect(commands.gatewayDiagnosticsConfigure).not.toHaveBeenCalled();
   });
   it("unwraps snapshots and events and surfaces backend failures", async () => {
     vi.mocked(commands.gatewayDiagnosticsSnapshot).mockResolvedValue({

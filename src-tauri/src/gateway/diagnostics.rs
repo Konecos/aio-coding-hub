@@ -6,6 +6,7 @@ use base64::Engine;
 use futures_core::Stream;
 use rusqlite::{params, Connection};
 use serde::Serialize;
+use std::io::Write;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -13,8 +14,12 @@ use std::sync::{mpsc, Arc, OnceLock};
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
-const BODY_LIMIT: usize = 64 * 1024;
-const STORAGE_LIMIT: i64 = 50 * 1024 * 1024;
+const DEFAULT_STORAGE_LIMIT: i64 = 5 * 1024 * 1024 * 1024;
+const MIN_STORAGE_LIMIT: i64 = 1024 * 1024;
+const MAX_STORAGE_LIMIT: i64 = 9_007_199_254_740_991;
+// These bound queue messages and IPC previews, never the retained body size.
+const CHUNK_SIZE: usize = 256 * 1024;
+const BODY_PREVIEW_LIMIT: usize = 1024 * 1024;
 const TRACE_LIMIT: i64 = 1000;
 const EVENT_LIMIT: i64 = 64;
 static CLIENT: OnceLock<Arc<Client>> = OnceLock::new();
@@ -40,7 +45,9 @@ pub(crate) struct DiagnosticEvent {
     pub metadata: String,
     pub body: String,
     pub body_encoding: String,
-    pub bytes_seen: u32,
+    pub bytes_seen: i64,
+    pub retained_bytes: i64,
+    pub preview_truncated: bool,
     pub truncated: bool,
     pub complete: bool,
     pub note: Option<String>,
@@ -50,7 +57,8 @@ pub(crate) struct DiagnosticEvent {
 pub(crate) struct DiagnosticSnapshot {
     pub enabled: bool,
     pub retention_days: u32,
-    pub stored_bytes: u32,
+    pub storage_limit_bytes: i64,
+    pub stored_bytes: i64,
     pub dropped_messages: u32,
     pub last_error: Option<String>,
     pub traces: Vec<DiagnosticTrace>,
@@ -68,11 +76,12 @@ enum Message {
     Stop,
     Begin(u64, DiagnosticTrace),
     Event(u64, String, String, &'static str, String, i64),
-    Chunk(u64, String, Vec<u8>, u32),
-    End(u64, String, u32, bool, Option<String>),
+    Chunk(u64, String, Vec<u8>, i64),
+    End(u64, String, i64, bool, Option<String>),
     Status(u64, String, u16),
     Read(Option<String>, mpsc::Sender<Result<ReadResult, String>>),
-    Configure(bool, u32, mpsc::Sender<Result<(), String>>),
+    Configure(bool, u32, i64, mpsc::Sender<Result<(), String>>),
+    SaveBody(String, String, String, mpsc::Sender<Result<(), String>>),
     Clear(bool, mpsc::Sender<Result<(), String>>),
 }
 
@@ -85,6 +94,7 @@ struct Store {
     conn: Connection,
     enabled: bool,
     retention_days: u32,
+    storage_limit_bytes: i64,
     epoch: u64,
     last_error: Option<String>,
 }
@@ -100,21 +110,41 @@ impl Store {
              PRAGMA secure_delete=ON;
              PRAGMA foreign_keys=ON;
              CREATE TABLE IF NOT EXISTS config (id INTEGER PRIMARY KEY CHECK(id=1), enabled INTEGER NOT NULL, days INTEGER NOT NULL);
-             INSERT OR IGNORE INTO config VALUES(1, 0, 15);
+             INSERT OR IGNORE INTO config(id,enabled,days) VALUES(1, 0, 15);
              CREATE TABLE IF NOT EXISTS traces (trace_id TEXT PRIMARY KEY, cli_key TEXT NOT NULL, method TEXT NOT NULL, path TEXT NOT NULL, created_at_ms INTEGER NOT NULL, status INTEGER, epoch INTEGER NOT NULL, capture_limited INTEGER NOT NULL DEFAULT 0);
              CREATE INDEX IF NOT EXISTS traces_created ON traces(created_at_ms);
              CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, trace_id TEXT NOT NULL REFERENCES traces(trace_id) ON DELETE CASCADE, phase TEXT NOT NULL, created_at_ms INTEGER NOT NULL, metadata TEXT NOT NULL, body BLOB NOT NULL DEFAULT X'', bytes_seen INTEGER NOT NULL DEFAULT 0, complete INTEGER NOT NULL DEFAULT 0, note TEXT);
-             CREATE INDEX IF NOT EXISTS events_trace ON events(trace_id, created_at_ms);",
+             CREATE INDEX IF NOT EXISTS events_trace ON events(trace_id, created_at_ms);
+             CREATE TABLE IF NOT EXISTS event_chunks (id INTEGER PRIMARY KEY, event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE, data BLOB NOT NULL);
+             CREATE INDEX IF NOT EXISTS event_chunks_event ON event_chunks(event_id,id);",
         ).map_err(|e| e.to_string())?;
-        let (enabled, retention_days) = conn
-            .query_row("SELECT enabled, days FROM config WHERE id=1", [], |r| {
-                Ok((r.get(0)?, r.get(1)?))
-            })
+        let version: u32 = conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .map_err(|e| e.to_string())?;
+        if version == 0 {
+            // Migrate legacy 64 KiB bodies exactly once, without discarding data.
+            conn.execute_batch(
+                "BEGIN;
+                 ALTER TABLE config ADD COLUMN storage_limit_bytes INTEGER NOT NULL DEFAULT 5368709120;
+                 ALTER TABLE events ADD COLUMN retained_bytes INTEGER NOT NULL DEFAULT 0;
+                 INSERT INTO event_chunks(event_id,data) SELECT id,body FROM events WHERE length(body)>0;
+                 UPDATE events SET retained_bytes=length(body),body=X'';
+                 PRAGMA user_version=1;
+                 COMMIT;"
+            ).map_err(|e| e.to_string())?;
+        }
+        let (enabled, retention_days, storage_limit_bytes) = conn
+            .query_row(
+                "SELECT enabled, days, storage_limit_bytes FROM config WHERE id=1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
             .map_err(|e| e.to_string())?;
         let store = Self {
             conn,
             enabled,
             retention_days,
+            storage_limit_bytes,
             epoch: 0,
             last_error: None,
         };
@@ -141,17 +171,17 @@ impl Store {
         let mut size: i64 = self
             .conn
             .query_row(
-                "SELECT COALESCE(SUM(length(body)+length(CAST(metadata AS BLOB))),0) FROM events",
+                "SELECT COALESCE(SUM(retained_bytes+length(CAST(metadata AS BLOB))),0) FROM events",
                 [],
                 |r| r.get(0),
             )
             .map_err(|e| e.to_string())?;
-        while size > STORAGE_LIMIT {
+        while size > self.storage_limit_bytes {
             self.conn.execute("DELETE FROM traces WHERE trace_id=(SELECT trace_id FROM traces ORDER BY created_at_ms, rowid LIMIT 1)", []).map_err(|e| e.to_string())?;
             size = self
                 .conn
                 .query_row(
-                    "SELECT COALESCE(SUM(length(body)+length(CAST(metadata AS BLOB))),0) FROM events",
+                    "SELECT COALESCE(SUM(retained_bytes+length(CAST(metadata AS BLOB))),0) FROM events",
                     [],
                     |r| r.get(0),
                 )
@@ -180,7 +210,7 @@ impl Store {
         let stored_bytes = self
             .conn
             .query_row(
-                "SELECT COALESCE(SUM(length(body)+length(CAST(metadata AS BLOB))),0) FROM events",
+                "SELECT COALESCE(SUM(retained_bytes+length(CAST(metadata AS BLOB))),0) FROM events",
                 [],
                 |r| r.get(0),
             )
@@ -188,6 +218,7 @@ impl Store {
         Ok(DiagnosticSnapshot {
             enabled: self.enabled,
             retention_days: self.retention_days,
+            storage_limit_bytes: self.storage_limit_bytes,
             stored_bytes,
             dropped_messages: dropped.min(u32::MAX as u64) as u32,
             last_error: self.last_error.clone(),
@@ -196,11 +227,25 @@ impl Store {
     }
 
     fn events(&self, trace_id: &str) -> Result<Vec<DiagnosticEvent>, String> {
-        let mut stmt = self.conn.prepare("SELECT id,phase,created_at_ms,metadata,body,bytes_seen,complete,note FROM events WHERE trace_id=?1 ORDER BY rowid").map_err(|e| e.to_string())?;
+        let mut stmt = self.conn.prepare("SELECT id,phase,created_at_ms,metadata,retained_bytes,bytes_seen,complete,note FROM events WHERE trace_id=?1 ORDER BY rowid").map_err(|e| e.to_string())?;
         let events = stmt
             .query_map([trace_id], |r| {
-                let bytes: Vec<u8> = r.get(4)?;
-                let bytes_seen: u32 = r.get(5)?;
+                let id: String = r.get(0)?;
+                let retained_bytes: i64 = r.get(4)?;
+                let bytes_seen: i64 = r.get(5)?;
+                let mut chunks = self.conn.prepare(
+                    "SELECT substr(data,1,?2) FROM event_chunks WHERE event_id=?1 ORDER BY id",
+                )?;
+                let mut rows = chunks.query(params![id, BODY_PREVIEW_LIMIT as i64])?;
+                let mut bytes = Vec::new();
+                while bytes.len() < BODY_PREVIEW_LIMIT {
+                    let Some(row) = rows.next()? else {
+                        break;
+                    };
+                    let chunk: Vec<u8> = row.get(0)?;
+                    let count = chunk.len().min(BODY_PREVIEW_LIMIT - bytes.len());
+                    bytes.extend_from_slice(&chunk[..count]);
+                }
                 let binary = std::str::from_utf8(&bytes).is_err()
                     || bytes
                         .iter()
@@ -214,14 +259,16 @@ impl Store {
                     (String::from_utf8_lossy(&bytes).into_owned(), "utf8")
                 };
                 Ok(DiagnosticEvent {
-                    id: r.get(0)?,
+                    id,
                     phase: r.get(1)?,
                     created_at_ms: r.get(2)?,
                     metadata: r.get(3)?,
                     body,
                     body_encoding: body_encoding.into(),
                     bytes_seen,
-                    truncated: bytes_seen as usize > bytes.len(),
+                    retained_bytes,
+                    preview_truncated: retained_bytes > bytes.len() as i64,
+                    truncated: bytes_seen > retained_bytes,
                     complete: r.get(6)?,
                     note: r.get(7)?,
                 })
@@ -230,6 +277,37 @@ impl Store {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.to_string());
         events
+    }
+
+    fn write_body(&self, trace: &str, event_id: &str, path: &Path) -> Result<(), String> {
+        if !path.is_absolute() {
+            return Err("SEC_INVALID_INPUT: 正文保存路径必须为绝对路径".into());
+        }
+        let exists: bool = self
+            .conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM events WHERE trace_id=?1 AND id=?2)",
+                params![trace, event_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if !exists {
+            return Err("通信内容已被清理，请刷新后重试".into());
+        }
+        let file = std::fs::File::create(path).map_err(|e| format!("保存通信正文失败：{e}"))?;
+        let mut writer = std::io::BufWriter::new(file);
+        let mut stmt = self
+            .conn
+            .prepare("SELECT data FROM event_chunks WHERE event_id=?1 ORDER BY id")
+            .map_err(|e| e.to_string())?;
+        let mut rows = stmt.query([event_id]).map_err(|e| e.to_string())?;
+        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+            let chunk: Vec<u8> = row.get(0).map_err(|e| e.to_string())?;
+            writer
+                .write_all(&chunk)
+                .map_err(|e| format!("保存通信正文失败：{e}"))?;
+        }
+        writer.flush().map_err(|e| format!("保存通信正文失败：{e}"))
     }
 
     fn capture(&self, msg: Message) -> Result<(), String> {
@@ -256,7 +334,17 @@ impl Store {
                 self.conn.execute("INSERT INTO events(id,trace_id,phase,metadata,created_at_ms) SELECT ?1,?2,?3,?4,?5 WHERE EXISTS(SELECT 1 FROM traces WHERE trace_id=?2 AND epoch=?7) AND (SELECT COUNT(*) FROM events WHERE trace_id=?2) < ?6", params![id,trace,phase,metadata,time,EVENT_LIMIT,epoch]).map_err(|e| e.to_string())?;
             }
             Message::Chunk(epoch, id, bytes, seen) if self.enabled && epoch == self.epoch => {
-                self.conn.execute("UPDATE events SET body=substr(CAST(body || ?1 AS BLOB),1,?2),bytes_seen=?3 WHERE id=?4", params![bytes,BODY_LIMIT as i64,seen,id]).map_err(|e| e.to_string())?;
+                let tx = self
+                    .conn
+                    .unchecked_transaction()
+                    .map_err(|e| e.to_string())?;
+                tx.execute("INSERT INTO event_chunks(event_id,data) SELECT ?1,?2 WHERE EXISTS(SELECT 1 FROM events WHERE id=?1)", params![id,bytes]).map_err(|e| e.to_string())?;
+                tx.execute(
+                    "UPDATE events SET retained_bytes=retained_bytes+?1,bytes_seen=?2 WHERE id=?3",
+                    params![bytes.len() as i64, seen, id],
+                )
+                .map_err(|e| e.to_string())?;
+                tx.commit().map_err(|e| e.to_string())?;
             }
             Message::End(epoch, id, seen, complete, note)
                 if self.enabled && epoch == self.epoch =>
@@ -346,8 +434,14 @@ fn run_worker(mut store: Store, rx: mpsc::Receiver<Message>, client: Arc<Client>
                 });
                 let _ = reply.send(result);
             }
-            Message::Configure(enabled, days, reply) => {
-                let result = store.conn.execute("UPDATE config SET enabled=?1,days=?2 WHERE id=1", params![enabled,days]).map_err(|e| e.to_string()).and_then(|_| {
+            Message::SaveBody(trace, event_id, path, reply) => {
+                let result = store
+                    .cleanup(now_ms())
+                    .and_then(|_| store.write_body(&trace, &event_id, Path::new(&path)));
+                let _ = reply.send(result);
+            }
+            Message::Configure(enabled, days, storage_limit_bytes, reply) => {
+                let result = validate_configuration(days, storage_limit_bytes).and_then(|_| store.conn.execute("UPDATE config SET enabled=?1,days=?2,storage_limit_bytes=?3 WHERE id=1", params![enabled,days,storage_limit_bytes]).map_err(|e| e.to_string())).and_then(|_| {
                     if store.enabled != enabled {
                         store.epoch += 1;
                         client.epoch.store(store.epoch, Ordering::Release);
@@ -355,6 +449,7 @@ fn run_worker(mut store: Store, rx: mpsc::Receiver<Message>, client: Arc<Client>
                     }
                     store.enabled = enabled;
                     store.retention_days = days;
+                    store.storage_limit_bytes = storage_limit_bytes;
                     client.enabled.store(enabled, Ordering::Release);
                     store.cleanup(now_ms())
                 });
@@ -372,10 +467,14 @@ fn run_worker(mut store: Store, rx: mpsc::Receiver<Message>, client: Arc<Client>
                         if reset {
                             store.enabled = false;
                             store.retention_days = 15;
+                            store.storage_limit_bytes = DEFAULT_STORAGE_LIMIT;
                             client.enabled.store(false, Ordering::Release);
                             store
                                 .conn
-                                .execute("UPDATE config SET enabled=0,days=15", [])
+                                .execute(
+                                    "UPDATE config SET enabled=0,days=15,storage_limit_bytes=?1",
+                                    [DEFAULT_STORAGE_LIMIT],
+                                )
                                 .map_err(|e| e.to_string())?;
                         }
                         store.last_error = None;
@@ -423,38 +522,36 @@ pub(crate) fn events(trace: String) -> Result<Vec<DiagnosticEvent>, String> {
 }
 
 pub(crate) fn save_body(trace: String, event_id: String, path: String) -> Result<(), String> {
+    if trace.is_empty() || trace.len() > 256 {
+        return Err("SEC_INVALID_INPUT: invalid trace_id".into());
+    }
     if event_id.is_empty() || event_id.len() > 256 {
         return Err("SEC_INVALID_INPUT: invalid event_id".into());
-    }
-    let event = events(trace)?
-        .into_iter()
-        .find(|event| event.id == event_id)
-        .ok_or_else(|| "通信内容已被清理，请刷新后重试".to_string())?;
-    write_body(&event, Path::new(&path))
-}
-
-fn write_body(event: &DiagnosticEvent, path: &Path) -> Result<(), String> {
-    if !path.is_absolute() {
-        return Err("SEC_INVALID_INPUT: 正文保存路径必须为绝对路径".into());
-    }
-    let bytes = if event.body_encoding == "base64" {
-        base64::engine::general_purpose::STANDARD
-            .decode(&event.body)
-            .map_err(|error| format!("正文编码无效：{error}"))?
-    } else {
-        event.body.as_bytes().to_vec()
-    };
-    std::fs::write(path, bytes).map_err(|error| format!("保存通信正文失败：{error}"))
-}
-
-pub(crate) fn configure(enabled: bool, days: u32) -> Result<(), String> {
-    if !(1..=365).contains(&days) {
-        return Err("驻留时间必须为 1–365 天".into());
     }
     let (tx, rx) = mpsc::channel();
     client()?
         .tx
-        .send(Message::Configure(enabled, days, tx))
+        .send(Message::SaveBody(trace, event_id, path, tx))
+        .map_err(|e| e.to_string())?;
+    rx.recv().map_err(|e| e.to_string())?
+}
+
+fn validate_configuration(days: u32, storage_limit_bytes: i64) -> Result<(), String> {
+    if !(1..=365).contains(&days) {
+        return Err("驻留时间必须为 1–365 天".into());
+    }
+    if !(MIN_STORAGE_LIMIT..=MAX_STORAGE_LIMIT).contains(&storage_limit_bytes) {
+        return Err("驻留容量必须至少为 1 MiB，且为有效的安全整数".into());
+    }
+    Ok(())
+}
+
+pub(crate) fn configure(enabled: bool, days: u32, storage_limit_bytes: i64) -> Result<(), String> {
+    validate_configuration(days, storage_limit_bytes)?;
+    let (tx, rx) = mpsc::channel();
+    client()?
+        .tx
+        .send(Message::Configure(enabled, days, storage_limit_bytes, tx))
         .map_err(|e| e.to_string())?;
     rx.recv().map_err(|e| e.to_string())?
 }
@@ -544,9 +641,7 @@ impl Capture {
             capture: self.clone(),
             id,
             seen: 0,
-            retained: 0,
             ended: false,
-            last_progress: Instant::now(),
         }
     }
 
@@ -600,10 +695,8 @@ pub(in crate::gateway) fn transport_error_details(
 pub(in crate::gateway) struct BodyCapture {
     capture: Capture,
     id: String,
-    seen: u32,
-    retained: usize,
+    seen: i64,
     ended: bool,
-    last_progress: Instant,
 }
 
 impl BodyCapture {
@@ -614,19 +707,14 @@ impl BodyCapture {
             self.ended = true;
             return;
         }
-        self.seen = self
-            .seen
-            .saturating_add(bytes.len().min(u32::MAX as usize) as u32);
-        let count = bytes.len().min(BODY_LIMIT - self.retained);
-        if count > 0 || self.last_progress.elapsed() >= Duration::from_secs(1) {
+        for chunk in bytes.chunks(CHUNK_SIZE) {
+            self.seen = self.seen.saturating_add(chunk.len() as i64);
             self.capture.client.offer(Message::Chunk(
                 self.capture.epoch,
                 self.id.clone(),
-                bytes[..count].to_vec(),
+                chunk.to_vec(),
                 self.seen,
             ));
-            self.retained += count;
-            self.last_progress = Instant::now();
         }
     }
 

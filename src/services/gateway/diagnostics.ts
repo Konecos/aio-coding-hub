@@ -1,6 +1,9 @@
 import { commands, type DiagnosticEvent, type DiagnosticSnapshot } from "../../generated/bindings";
 import { invokeGeneratedIpc } from "../generatedIpc";
 
+export const DEFAULT_DIAGNOSTIC_STORAGE_BYTES = 5 * 1024 ** 3;
+export const MIN_DIAGNOSTIC_STORAGE_BYTES = 1024 ** 2;
+
 export type {
   DiagnosticEvent,
   DiagnosticSnapshot,
@@ -33,9 +36,19 @@ export function diagnosticsSaveBody(traceId: string, eventId: string, path: stri
   });
 }
 
-export function diagnosticsConfigure(enabled: boolean, retentionDays: number) {
+export function diagnosticsConfigure(
+  enabled: boolean,
+  retentionDays: number,
+  storageLimitBytes: number
+) {
   if (!Number.isInteger(retentionDays) || retentionDays < 1 || retentionDays > 365) {
     return Promise.reject(new Error("驻留时间必须为 1–365 天的整数"));
+  }
+  if (
+    !Number.isSafeInteger(storageLimitBytes) ||
+    storageLimitBytes < MIN_DIAGNOSTIC_STORAGE_BYTES
+  ) {
+    return Promise.reject(new Error("驻留容量必须至少为 1 MiB，且为有效的安全整数"));
   }
   return invokeGeneratedIpc<null, boolean>({
     title: "保存信息驻留设置失败",
@@ -43,7 +56,7 @@ export function diagnosticsConfigure(enabled: boolean, retentionDays: number) {
     // Generated Result<(), String> carries null on success.
     nullResultBehavior: "return_fallback",
     fallback: true,
-    invoke: () => commands.gatewayDiagnosticsConfigure(enabled, retentionDays),
+    invoke: () => commands.gatewayDiagnosticsConfigure(enabled, retentionDays, storageLimitBytes),
   });
 }
 

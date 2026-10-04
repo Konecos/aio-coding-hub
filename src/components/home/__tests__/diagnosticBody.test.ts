@@ -18,6 +18,7 @@ function body(bytes: Uint8Array, metadata = "", overrides = {}) {
     metadata,
     complete: true,
     truncated: false,
+    preview_truncated: false,
     ...overrides,
   };
 }
@@ -98,6 +99,14 @@ describe("diagnostic body previews", () => {
     expect((await preview(body(bytes))).note).toContain("当前环境不支持");
   });
 
+  it("does not confuse preview limits with missing stored bytes and handles a split UTF-8 tail", async () => {
+    const bytes = gzipSync("hello");
+    const result = await preview(body(bytes, "", { preview_truncated: true }));
+    expect(result.note).toContain("完整驻留内容");
+    const text = new TextEncoder().encode("中文").subarray(0, 4);
+    expect((await preview(body(text, "", { preview_truncated: true }))).text).toBe("中");
+  });
+
   it("previews complete raster images and keeps incomplete images and SVG out of the image renderer", async () => {
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     expect((await preview(body(png))).imageMime).toBe("image/png");
@@ -112,7 +121,9 @@ describe("diagnostic body previews", () => {
     expect((await preview(body(bytes))).text).toBeUndefined();
     expect(diagnosticHex(bytes)).toContain("00000000  00 01 02 41 ff");
     expect(diagnosticHex(bytes)).toContain("|...A.|");
-    expect(diagnosticHex(new Uint8Array(1024))).toContain("仅预览前 512 字节，共保留 1024 字节");
+    expect(diagnosticHex(new Uint8Array(1024))).toContain(
+      "仅预览前 512 字节，当前已加载 1024 字节"
+    );
     expect(await preview(body(new Uint8Array([0xff, 0xfe, 0x41])))).toMatchObject({
       text: undefined,
     });

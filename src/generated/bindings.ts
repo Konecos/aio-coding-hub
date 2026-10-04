@@ -525,12 +525,17 @@ export const commands = {
   },
   async gatewayDiagnosticsConfigure(
     enabled: boolean,
-    retentionDays: number
+    retentionDays: number,
+    storageLimitBytes: number
   ): Promise<Result<null, string>> {
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("gateway_diagnostics_configure", { enabled, retentionDays }),
+        data: await TAURI_INVOKE("gateway_diagnostics_configure", {
+          enabled,
+          retentionDays,
+          storageLimitBytes,
+        }),
       };
     } catch (e) {
       if (e instanceof Error) throw e;
@@ -2835,6 +2840,8 @@ export type DiagnosticEvent = {
   body: string;
   body_encoding: string;
   bytes_seen: number;
+  retained_bytes: number;
+  preview_truncated: boolean;
   truncated: boolean;
   complete: boolean;
   note: string | null;
@@ -2842,6 +2849,7 @@ export type DiagnosticEvent = {
 export type DiagnosticSnapshot = {
   enabled: boolean;
   retention_days: number;
+  storage_limit_bytes: number;
   stored_bytes: number;
   dropped_messages: number;
   last_error: string | null;

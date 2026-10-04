@@ -33,8 +33,15 @@ export function useDiagnosticsEvents(traceId: string | null, live: boolean) {
 export function useDiagnosticsConfigure() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ enabled, days }: { enabled: boolean; days: number }) =>
-      diagnosticsConfigure(enabled, days),
+    mutationFn: ({
+      enabled,
+      days,
+      storageLimitBytes,
+    }: {
+      enabled: boolean;
+      days: number;
+      storageLimitBytes: number;
+    }) => diagnosticsConfigure(enabled, days, storageLimitBytes),
     onSuccess: async () => {
       await client.cancelQueries({ queryKey: root });
       client.setQueriesData({ queryKey: [...root, "events"] }, []);

@@ -19,6 +19,8 @@ import { writeDesktopClipboardText } from "../../../services/desktop/clipboard";
 import { saveDesktopFilePath } from "../../../services/desktop/dialog";
 
 vi.mock("../../../services/gateway/diagnostics", () => ({
+  DEFAULT_DIAGNOSTIC_STORAGE_BYTES: 5 * 1024 ** 3,
+  MIN_DIAGNOSTIC_STORAGE_BYTES: 1024 ** 2,
   diagnosticsSnapshot: vi.fn(),
   diagnosticsEvents: vi.fn(),
   diagnosticsConfigure: vi.fn(),
@@ -33,6 +35,7 @@ function snapshot(): DiagnosticSnapshot {
     enabled: false,
     retention_days: 15,
     stored_bytes: 1024,
+    storage_limit_bytes: 5 * 1024 ** 3,
     dropped_messages: 0,
     last_error: null,
     traces: [
@@ -58,6 +61,8 @@ function event(overrides: Partial<DiagnosticEvent> = {}): DiagnosticEvent {
     body_encoding: "utf8",
     created_at_ms: 1770000000000,
     bytes_seen: 15,
+    retained_bytes: 15,
+    preview_truncated: false,
     complete: true,
     truncated: false,
     note: null,
@@ -68,9 +73,10 @@ function event(overrides: Partial<DiagnosticEvent> = {}): DiagnosticEvent {
 function setup(data = snapshot()) {
   vi.mocked(diagnosticsSnapshot).mockResolvedValue(data);
   vi.mocked(diagnosticsEvents).mockResolvedValue([event()]);
-  vi.mocked(diagnosticsConfigure).mockImplementation(async (enabled, days) => {
+  vi.mocked(diagnosticsConfigure).mockImplementation(async (enabled, days, storageLimitBytes) => {
     data.enabled = enabled;
     data.retention_days = days;
+    data.storage_limit_bytes = storageLimitBytes;
     return true;
   });
   vi.mocked(diagnosticsClear).mockImplementation(async () => {
@@ -96,7 +102,7 @@ describe("communication retention", () => {
     const toggle = screen.getByRole("switch", { name: "信息驻留" });
     await waitFor(() => expect(toggle).toBeEnabled());
     fireEvent.click(toggle);
-    await waitFor(() => expect(diagnosticsConfigure).toHaveBeenCalledWith(true, 15));
+    await waitFor(() => expect(diagnosticsConfigure).toHaveBeenCalledWith(true, 15, 5 * 1024 ** 3));
     await waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "true"));
     fireEvent.click(screen.getByRole("button", { name: "通信查看" }));
     expect(await screen.findByText("供应商 → 网关", { exact: false })).toBeInTheDocument();
@@ -115,8 +121,49 @@ describe("communication retention", () => {
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
     fireEvent.change(input, { target: { value: "30" } });
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
-    await waitFor(() => expect(diagnosticsConfigure).toHaveBeenCalledWith(false, 30));
+    await waitFor(() =>
+      expect(diagnosticsConfigure).toHaveBeenCalledWith(false, 30, 5 * 1024 ** 3)
+    );
     await waitFor(() => expect(input).toHaveValue(30));
+  });
+
+  it("defaults to 5 GiB, validates capacity and preserves it when toggling capture", async () => {
+    const { wrapper } = setup();
+    render(<DiagnosticCommunicationDialog open onOpenChange={vi.fn()} />, { wrapper });
+    await screen.findByText("upstream failed");
+    const capacity = screen.getByRole("spinbutton", { name: "驻留容量（GiB）" });
+    expect(capacity).toHaveValue(5);
+    fireEvent.change(capacity, { target: { value: "0" } });
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+    fireEvent.change(capacity, { target: { value: "" } });
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+    fireEvent.change(capacity, { target: { value: "10.5" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(diagnosticsConfigure).toHaveBeenCalledWith(false, 15, 10.5 * 1024 ** 3)
+    );
+    await waitFor(() => expect(capacity).toHaveValue(10.5));
+    fireEvent.click(screen.getByRole("switch", { name: "通信信息驻留" }));
+    await waitFor(() =>
+      expect(diagnosticsConfigure).toHaveBeenLastCalledWith(true, 15, 10.5 * 1024 ** 3)
+    );
+    expect(screen.queryByText(/每条正文最多 64/)).not.toBeInTheDocument();
+  });
+
+  it("distinguishes a limited preview from missing captured data", async () => {
+    const { wrapper } = setup();
+    vi.mocked(diagnosticsEvents).mockResolvedValue([
+      event({
+        body: "preview prefix",
+        bytes_seen: 2 * 1024 ** 2,
+        retained_bytes: 2 * 1024 ** 2,
+        preview_truncated: true,
+      }),
+    ]);
+    render(<DiagnosticCommunicationDialog open onOpenChange={vi.fn()} />, { wrapper });
+    await screen.findByText("preview prefix");
+    expect(screen.getByText(/当前仅预览正文开头，已驻留 2097152 字节/)).toBeInTheDocument();
+    expect(screen.queryByText(/内容已截断或缺失/)).not.toBeInTheDocument();
   });
 
   it("keeps the selected trace stable while polling and can pause and resume", async () => {

@@ -81,7 +81,7 @@ fn persists_settings_bodies_and_marks_interrupted_streams_after_restart() {
 }
 
 #[test]
-fn caps_bodies_and_preserves_binary_bytes_with_nuls() {
+fn retains_bodies_above_64k_and_preserves_binary_bytes_with_nuls() {
     let store = enabled_store(Path::new(":memory:"));
     seed(&store, "binary");
     store
@@ -115,13 +115,13 @@ fn caps_bodies_and_preserves_binary_bytes_with_nuls() {
         .capture(Message::Chunk(
             0,
             "large-event".into(),
-            vec![b'x'; BODY_LIMIT + 100],
-            (BODY_LIMIT + 100) as u32,
+            vec![b'x'; 64 * 1024 + 100],
+            64 * 1024 + 100,
         ))
         .unwrap();
     let event = &store.events("large").unwrap()[0];
-    assert_eq!(event.body.len(), BODY_LIMIT);
-    assert!(event.truncated);
+    assert_eq!(event.body.len(), 64 * 1024 + 100);
+    assert!(!event.truncated);
 }
 
 #[test]
@@ -137,9 +137,11 @@ fn preserves_non_utf8_binary_and_exports_exact_retained_bytes() {
     assert!(event.truncated);
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("body.bin");
-    write_body(event, &path).unwrap();
+    store.write_body("binary", "binary-event", &path).unwrap();
     assert_eq!(std::fs::read(&path).unwrap(), bytes);
-    assert!(write_body(event, Path::new("relative.bin")).is_err());
+    assert!(store
+        .write_body("binary", "binary-event", Path::new("relative.bin"))
+        .is_err());
 
     seed(&store, "text");
     store
@@ -150,7 +152,7 @@ fn preserves_non_utf8_binary_and_exports_exact_retained_bytes() {
             6,
         ))
         .unwrap();
-    write_body(&store.events("text").unwrap()[0], &path).unwrap();
+    store.write_body("text", "text-event", &path).unwrap();
     assert_eq!(std::fs::read(&path).unwrap(), "中文".as_bytes());
 }
 
@@ -219,16 +221,18 @@ fn expires_by_configured_age_and_caps_trace_and_event_counts() {
 
 #[test]
 fn evicts_oldest_trace_when_total_storage_limit_is_exceeded() {
-    let store = enabled_store(Path::new(":memory:"));
+    let mut store = enabled_store(Path::new(":memory:"));
+    store.storage_limit_bytes = MIN_STORAGE_LIMIT;
     seed(&store, "oldest");
     std::thread::sleep(Duration::from_millis(2));
     seed(&store, "newest");
     store
-        .conn
-        .execute(
-            "UPDATE events SET body=zeroblob(?1) WHERE trace_id='oldest'",
-            [STORAGE_LIMIT],
-        )
+        .capture(Message::Chunk(
+            0,
+            "oldest-event".into(),
+            vec![0; MIN_STORAGE_LIMIT as usize],
+            MIN_STORAGE_LIMIT,
+        ))
         .unwrap();
     store.cleanup(now_ms()).unwrap();
     assert!(store.events("oldest").unwrap().is_empty());
@@ -258,10 +262,13 @@ impl Harness {
         }
     }
     fn configure(&self, enabled: bool, days: u32) {
+        self.configure_capacity(enabled, days, DEFAULT_STORAGE_LIMIT);
+    }
+    fn configure_capacity(&self, enabled: bool, days: u32, storage_limit_bytes: i64) {
         let (tx, rx) = mpsc::channel();
         self.client
             .tx
-            .send(Message::Configure(enabled, days, tx))
+            .send(Message::Configure(enabled, days, storage_limit_bytes, tx))
             .unwrap();
         rx.recv().unwrap().unwrap();
     }
@@ -348,11 +355,173 @@ fn clear_and_disable_reject_late_stream_data_and_reset_restores_defaults() {
         if let ReadResult::Snapshot(snapshot) = h.read(None) {
             assert!(!snapshot.enabled);
             assert_eq!(snapshot.retention_days, 15);
+            assert_eq!(snapshot.storage_limit_bytes, DEFAULT_STORAGE_LIMIT);
             assert!(snapshot.traces.is_empty());
         } else {
             panic!();
         }
     }
+}
+
+#[test]
+fn migrates_legacy_bodies_and_defaults_capacity_to_five_gib_without_duplicate_chunks() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("legacy.sqlite3");
+    let bytes = vec![0, 0xff, 0x41];
+    {
+        let store = enabled_store(&path);
+        seed(&store, "legacy");
+        store
+            .conn
+            .execute(
+                "UPDATE events SET body=?1 WHERE id='legacy-event'",
+                [&bytes],
+            )
+            .unwrap();
+        store
+            .conn
+            .execute_batch(
+                "DROP TABLE event_chunks;
+             ALTER TABLE events DROP COLUMN retained_bytes;
+             ALTER TABLE config DROP COLUMN storage_limit_bytes;
+             UPDATE config SET enabled=1,days=30;
+             PRAGMA user_version=0;",
+            )
+            .unwrap();
+    }
+    for _ in 0..2 {
+        let store = Store::open(&path).unwrap();
+        assert_eq!(store.storage_limit_bytes, DEFAULT_STORAGE_LIMIT);
+        assert_eq!(store.retention_days, 30);
+        assert!(store.enabled);
+        let event = &store.events("legacy").unwrap()[0];
+        assert_eq!(event.retained_bytes, 3);
+        assert!(!event.preview_truncated);
+        assert_eq!(
+            base64::engine::general_purpose::STANDARD
+                .decode(&event.body)
+                .unwrap(),
+            bytes
+        );
+        let count: i64 = store
+            .conn
+            .query_row("SELECT COUNT(*) FROM event_chunks", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+}
+
+#[test]
+fn large_body_previews_are_bounded_but_exports_include_every_chunk() {
+    let store = enabled_store(Path::new(":memory:"));
+    seed(&store, "large");
+    let mut expected = Vec::new();
+    for index in 0..6 {
+        let bytes = vec![b'a' + index; CHUNK_SIZE];
+        expected.extend_from_slice(&bytes);
+        store
+            .capture(Message::Chunk(
+                0,
+                "large-event".into(),
+                bytes,
+                expected.len() as i64,
+            ))
+            .unwrap();
+    }
+    let event = &store.events("large").unwrap()[0];
+    assert_eq!(event.body.len(), BODY_PREVIEW_LIMIT);
+    assert_eq!(event.retained_bytes, expected.len() as i64);
+    assert!(event.preview_truncated);
+    assert!(!event.truncated);
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("body.bin");
+    store.write_body("large", "large-event", &path).unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), expected);
+    assert!(store
+        .write_body("wrong-trace", "large-event", &path)
+        .is_err());
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        expected,
+        "a missing capture must not overwrite an existing file"
+    );
+}
+
+#[test]
+fn capacity_changes_persist_evict_immediately_and_reset_to_five_gib() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("capacity.sqlite3");
+    {
+        let h = Harness::new(&path);
+        h.configure_capacity(true, 30, DEFAULT_STORAGE_LIMIT * 2);
+        let mut old = h.begin("old").event("client_request", "".into());
+        old.chunk(&vec![b'x'; 2 * MIN_STORAGE_LIMIT as usize]);
+        old.finish(None);
+        let mut new = h.begin("new").event("client_request", "".into());
+        new.chunk(b"new");
+        new.finish(None);
+        h.configure_capacity(true, 30, MIN_STORAGE_LIMIT);
+        let ReadResult::Snapshot(snapshot) = h.read(None) else {
+            panic!()
+        };
+        assert_eq!(snapshot.storage_limit_bytes, MIN_STORAGE_LIMIT);
+        assert_eq!(snapshot.traces.len(), 1);
+        assert_eq!(snapshot.traces[0].trace_id, "new");
+    }
+    {
+        let h = Harness::new(&path);
+        let ReadResult::Snapshot(snapshot) = h.read(None) else {
+            panic!()
+        };
+        assert_eq!(snapshot.storage_limit_bytes, MIN_STORAGE_LIMIT);
+        assert_eq!(snapshot.retention_days, 30);
+        h.clear(false);
+        let ReadResult::Snapshot(snapshot) = h.read(None) else {
+            panic!()
+        };
+        assert_eq!(snapshot.storage_limit_bytes, MIN_STORAGE_LIMIT);
+        h.clear(true);
+        let ReadResult::Snapshot(snapshot) = h.read(None) else {
+            panic!()
+        };
+        assert_eq!(snapshot.storage_limit_bytes, DEFAULT_STORAGE_LIMIT);
+    }
+    assert!(validate_configuration(15, MIN_STORAGE_LIMIT - 1).is_err());
+    assert!(validate_configuration(15, MAX_STORAGE_LIMIT + 1).is_err());
+}
+
+#[test]
+fn byte_counters_support_more_than_four_gib_and_capture_splits_without_body_truncation() {
+    let store = enabled_store(Path::new(":memory:"));
+    seed(&store, "counter");
+    let size = i64::from(u32::MAX) + 100;
+    store
+        .conn
+        .execute(
+            "UPDATE events SET retained_bytes=?1,bytes_seen=?1 WHERE id='counter-event'",
+            [size],
+        )
+        .unwrap();
+    assert!(store.snapshot(0).unwrap().stored_bytes > i64::from(u32::MAX));
+    assert_eq!(store.events("counter").unwrap()[0].bytes_seen, size);
+    let (capture, rx) = capture_pair();
+    let mut body = capture.event("client_request", "".into());
+    body.seen = size;
+    let bytes = vec![b'x'; CHUNK_SIZE * 3 + 123];
+    body.chunk(&bytes);
+    body.finish(None);
+    let chunks: Vec<_> = rx
+        .try_iter()
+        .filter_map(|msg| match msg {
+            Message::Chunk(_, _, bytes, seen) => Some((bytes, seen)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(chunks.len(), 4);
+    assert!(chunks.iter().all(|(bytes, _)| bytes.len() <= CHUNK_SIZE));
+    assert_eq!(chunks.last().unwrap().1, size + bytes.len() as i64);
+    let captured: Vec<u8> = chunks.into_iter().flat_map(|(bytes, _)| bytes).collect();
+    assert_eq!(captured, bytes);
 }
 
 #[test]

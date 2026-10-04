@@ -13,7 +13,7 @@ export type DiagnosticBodyPreview = {
 
 type BodySource = Pick<
   DiagnosticEvent,
-  "body" | "body_encoding" | "metadata" | "complete" | "truncated"
+  "body" | "body_encoding" | "metadata" | "complete" | "truncated" | "preview_truncated"
 >;
 
 // Diagnostic metadata stores headers as `[name: value, name: value]`.
@@ -74,7 +74,7 @@ export function diagnosticHex(bytes: Uint8Array): string {
     rows.push(`${offset.toString(16).padStart(8, "0")}  ${hex.padEnd(47)}  |${ascii}|`);
   }
   if (bytes.length > HEX_PREVIEW_LIMIT) {
-    rows.push(`… 仅预览前 ${HEX_PREVIEW_LIMIT} 字节，共保留 ${bytes.length} 字节`);
+    rows.push(`… 仅预览前 ${HEX_PREVIEW_LIMIT} 字节，当前已加载 ${bytes.length} 字节`);
   }
   return rows.join("\n");
 }
@@ -90,9 +90,9 @@ function imageMime(bytes: Uint8Array): string | undefined {
   return undefined;
 }
 
-function readableText(bytes: Uint8Array): string | undefined {
+function readableText(bytes: Uint8Array, incomplete: boolean): string | undefined {
   try {
-    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes, { stream: incomplete });
     return /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(text) ? undefined : formatDiagnosticText(text);
   } catch {
     return undefined;
@@ -148,6 +148,9 @@ export async function previewDiagnosticBody(
   let decoded = bytes;
   if (compression) {
     preview.compression = compression;
+    if (event.preview_truncated) {
+      return { ...preview, note: "当前只加载了压缩正文开头，完整驻留内容可通过保存原始正文导出。" };
+    }
     if (compression !== "gzip" && compression !== "deflate" && compression !== "x-gzip") {
       return { ...preview, note: `暂不支持 ${compression} 解压，可查看或保存原始字节。` };
     }
@@ -169,11 +172,17 @@ export async function previewDiagnosticBody(
   }
   // Render only recognized raster formats; HTML and SVG remain plain text.
   const mime = imageMime(decoded);
-  if (mime && !compression && event.complete && !event.truncated) {
+  if (mime && !compression && event.complete && !event.truncated && !event.preview_truncated) {
     preview.imageMime = mime;
   } else {
-    preview.text = readableText(decoded);
-    if (mime) preview.note = "图片内容不完整或经过压缩，请保存原始字节后查看。";
+    preview.text = readableText(
+      decoded,
+      !event.complete || event.truncated || event.preview_truncated
+    );
+    if (mime)
+      preview.note = event.preview_truncated
+        ? "图片预览只包含正文开头，请保存完整驻留正文后查看。"
+        : "图片内容不完整或经过压缩，请保存原始字节后查看。";
     else if (preview.text == null)
       preview.note = "无法识别为可读文本或图片，显示原始字节的十六进制摘要。";
   }
