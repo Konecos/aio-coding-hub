@@ -146,6 +146,47 @@ where
     R: tauri::Runtime + 'static,
     R::Handle: Unpin,
 {
+    use crate::gateway::diagnostics::{capture_body, http_metadata, Capture};
+    let trace_id = new_trace_id();
+    let capture = Capture::begin(&trace_id, &cli_key, req.method().as_str(), &forwarded_path);
+    let req = if let Some(capture) = &capture {
+        let metadata = http_metadata(
+            &format!("{} {}", req.method(), forwarded_path),
+            req.headers(),
+        );
+        let (parts, body) = req.into_parts();
+        Request::from_parts(
+            parts,
+            capture_body(body, capture.event("client_request", metadata)),
+        )
+    } else {
+        req
+    };
+    let response = proxy_impl_inner(state, cli_key, forwarded_path, req, trace_id).await;
+    if let Some(capture) = capture {
+        capture.status(response.status().as_u16());
+        let metadata = http_metadata(&format!("HTTP {}", response.status()), response.headers());
+        let (parts, body) = response.into_parts();
+        Response::from_parts(
+            parts,
+            capture_body(body, capture.event("client_response", metadata)),
+        )
+    } else {
+        response
+    }
+}
+
+async fn proxy_impl_inner<R>(
+    state: crate::gateway::runtime::GatewayAppState<R>,
+    cli_key: String,
+    forwarded_path: String,
+    req: Request<Body>,
+    trace_id: String,
+) -> Response
+where
+    R: tauri::Runtime + 'static,
+    R::Handle: Unpin,
+{
     let ws_request = req
         .extensions()
         .get::<crate::gateway::responses_ws::state::RequestState>()
@@ -155,7 +196,6 @@ where
         .get::<Arc<crate::gateway::responses_ws::state::Connection>>()
         .cloned();
     let started = Instant::now();
-    let trace_id = new_trace_id();
     let created_at_ms = now_unix_millis() as i64;
     let created_at = (created_at_ms / 1000).max(0);
     let method = req.method().clone();

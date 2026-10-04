@@ -30,7 +30,26 @@ where
     R: tauri::Runtime,
     R::Handle: Unpin,
 {
-    let mut resp = resp;
+    let mut resp =
+        if let Some(capture) = crate::gateway::diagnostics::Capture::for_trace(ctx.trace_id) {
+            let metadata = crate::gateway::diagnostics::http_metadata(
+                &format!(
+                    "供应商 {} · 尝试 {} · HTTP {} · {}",
+                    prepared.provider_id,
+                    indices.attempt_index,
+                    resp.status(),
+                    if resp.is_websocket() {
+                        "WebSocket"
+                    } else {
+                        "HTTP"
+                    }
+                ),
+                resp.headers(),
+            );
+            resp.capture(capture.event("upstream_response", metadata))
+        } else {
+            resp
+        };
     if resp.status().is_success() || resp.is_websocket() {
         if let Some(request) = &input.ws_request {
             use crate::gateway::responses_ws::gate::{self, Failure, Gate};

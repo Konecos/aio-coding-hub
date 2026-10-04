@@ -5,6 +5,9 @@ use tauri_plugin_dialog::DialogExt;
 
 pub(crate) fn setup(app: &mut tauri::App<tauri::Wry>) -> Result<(), Box<dyn std::error::Error>> {
     crate::app::logging::init(app.handle());
+    if let Err(error) = crate::gateway::diagnostics::init(app.handle()) {
+        tracing::error!(%error, "communication retention initialization failed");
+    }
     guard_restart_storm(app);
     crate::app::heartbeat_watchdog::install(app.handle());
     install_panic_hook();

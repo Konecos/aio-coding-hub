@@ -43,6 +43,59 @@ pub(crate) fn gateway_status(app: tauri::AppHandle) -> gateway::GatewayStatus {
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn gateway_diagnostics_snapshot(
+    app: tauri::AppHandle,
+) -> Result<gateway::diagnostics::DiagnosticSnapshot, String> {
+    crate::blocking::run("diagnostics_snapshot", move || {
+        gateway::diagnostics::init(&app)?;
+        gateway::diagnostics::snapshot()
+    })
+    .await
+    .map_err(Into::into)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn gateway_diagnostics_events(
+    app: tauri::AppHandle,
+    trace_id: String,
+) -> Result<Vec<gateway::diagnostics::DiagnosticEvent>, String> {
+    crate::blocking::run("diagnostics_events", move || {
+        gateway::diagnostics::init(&app)?;
+        gateway::diagnostics::events(trace_id)
+    })
+    .await
+    .map_err(Into::into)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn gateway_diagnostics_configure(
+    app: tauri::AppHandle,
+    enabled: bool,
+    retention_days: u32,
+) -> Result<(), String> {
+    crate::blocking::run("diagnostics_configure", move || {
+        gateway::diagnostics::init(&app)?;
+        gateway::diagnostics::configure(enabled, retention_days)
+    })
+    .await
+    .map_err(Into::into)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn gateway_diagnostics_clear(app: tauri::AppHandle) -> Result<(), String> {
+    crate::blocking::run("diagnostics_clear", move || {
+        gateway::diagnostics::init(&app)?;
+        gateway::diagnostics::clear(false)
+    })
+    .await
+    .map_err(Into::into)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn gateway_check_port_available(
     app: tauri::AppHandle,
     port: u16,

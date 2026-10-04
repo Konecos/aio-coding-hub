@@ -163,6 +163,7 @@ export class MockChannel<T> {
 }
 
 vi.mock("@tauri-apps/api/core", () => ({
+  isTauri: () => "__TAURI_INTERNALS__" in window,
   invoke: tauriInvoke,
   Channel: MockChannel,
   convertFileSrc: tauriConvertFileSrc,

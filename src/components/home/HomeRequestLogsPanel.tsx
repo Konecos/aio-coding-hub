@@ -62,6 +62,7 @@ import {
 import { getErrorCodeLabel } from "./requestLogErrorLabels";
 import { Clock, CheckCircle2, XCircle, Server, RefreshCw, ArrowUpRight } from "lucide-react";
 import { RealtimeTraceCards } from "./RealtimeTraceCards";
+import { DiagnosticRetentionControl } from "./DiagnosticCommunication";
 import { CliBrandIcon } from "./CliBrandIcon";
 import {
   buildPreviewRequestLogs,
@@ -657,6 +658,7 @@ export function HomeRequestLogsPanel({
         </div>
 
         <div className="flex items-center gap-2">
+          <DiagnosticRetentionControl />
           {resolvedDisplayOptions.summaryText ? (
             <div className="text-xs text-muted-foreground">{summaryText}</div>
           ) : null}
