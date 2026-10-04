@@ -4806,7 +4806,7 @@ INSERT INTO plugins (
         assert!(detail
             .installed_dir
             .as_deref()
-            .is_some_and(|path| path.ends_with("plugins/installed/local.safe/1.0.0")));
+            .is_some_and(|path| Path::new(path).ends_with("plugins/installed/local.safe/1.0.0")));
         assert!(installed_dir
             .join("local.safe")
             .join("1.0.0")
@@ -4998,10 +4998,9 @@ INSERT INTO plugins (
 
         assert_eq!(detail.summary.plugin_id, "local.signed-valid");
         assert_eq!(detail.summary.status, PluginStatus::Disabled);
-        assert!(detail
-            .installed_dir
-            .as_deref()
-            .is_some_and(|path| path.ends_with("plugins/installed/local.signed-valid/1.0.0")));
+        assert!(detail.installed_dir.as_deref().is_some_and(
+            |path| Path::new(path).ends_with("plugins/installed/local.signed-valid/1.0.0")
+        ));
     }
 
     #[test]
@@ -5664,7 +5663,7 @@ INSERT INTO plugin_market_sources(
         assert!(rolled_back
             .installed_dir
             .as_deref()
-            .is_some_and(|path| path.ends_with("plugins/installed/local.manual/1.0.0")));
+            .is_some_and(|path| Path::new(path).ends_with("plugins/installed/local.manual/1.0.0")));
     }
 
     #[test]
