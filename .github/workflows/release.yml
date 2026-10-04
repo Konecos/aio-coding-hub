@@ -55,7 +55,9 @@ jobs:
         env:
           RELEASE_PLEASE_PRS: ${{ steps.release.outputs.prs }}
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-        run: node scripts/check-release-pr-changelog.mjs
+        run: |
+          node --test scripts/check-release-pr-changelog.test.mjs
+          node scripts/check-release-pr-changelog.mjs
 
   build:
     needs: release-please

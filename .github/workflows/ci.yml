@@ -58,6 +58,9 @@ jobs:
       - name: Validate Homebrew Cask generator
         run: node scripts/support-matrix.homebrew-cask.selftest.mjs
 
+      - name: Validate release changelog baseline handling
+        run: node --test scripts/check-release-pr-changelog.test.mjs
+
   desktop-support-contract:
     needs: support-contract
     strategy:

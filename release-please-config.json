@@ -1,9 +1,11 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "a1f26da0ac93b858f7ce61c10d5c22be6809c420",
   "packages": {
     ".": {
       "package-name": "aio-coding-hub",
       "release-type": "node",
+      "initial-version": "100.60.20",
       "include-v-in-tag": true,
       "draft": true,
       "bump-minor-pre-major": false,

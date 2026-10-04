@@ -1,6 +1,6 @@
 [package]
 name = "aio-coding-hub"
-version = "0.60.20"
+version = "100.60.20"
 description = "AIO Coding Hub Fork"
 authors = ["dyndynjyxa"]
 edition = "2021"

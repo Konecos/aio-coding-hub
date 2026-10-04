@@ -1,7 +1,7 @@
 {
   "name": "aio-coding-hub",
   "private": true,
-  "version": "0.60.20",
+  "version": "100.60.20",
   "packageManager": "pnpm@10.34.3",
   "type": "module",
   "scripts": {
@@ -19,7 +19,7 @@
     "lint:fix": "eslint src/ --fix",
     "audit:deps": "node scripts/check-pnpm-audit.selftest.mjs && node scripts/check-pnpm-audit.mjs",
     "check:no-instant-now-sub": "node scripts/check-no-instant-now-sub.mjs",
-    "check:release-pr-changelog": "node scripts/check-release-pr-changelog.mjs",
+    "check:release-pr-changelog": "node --test scripts/check-release-pr-changelog.test.mjs && node scripts/check-release-pr-changelog.mjs",
     "check:spec-links": "node scripts/check-spec-links.mjs",
     "check:support-matrix": "node scripts/support-matrix.mjs check",
     "check:homebrew-cask": "node scripts/support-matrix.homebrew-cask.selftest.mjs",

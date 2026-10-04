@@ -43,10 +43,6 @@ function parseArgs(argv) {
   return args;
 }
 
-function readJson(relativePath) {
-  return JSON.parse(readFileSync(resolve(repoRoot, relativePath), "utf8"));
-}
-
 function getPrNumbers(args) {
   const prNumber = args.get("pr");
 
@@ -74,9 +70,24 @@ function getPrNumbers(args) {
     .filter((item) => Number.isInteger(item) && item > 0);
 }
 
-function getReleaseTag() {
-  const manifest = readJson(".release-please-manifest.json");
-  const config = readJson("release-please-config.json");
+export function getReleaseBase({ root = repoRoot, baseRef = "HEAD", baseTag } = {}) {
+  const git = (...args) => run("git", args, { cwd: root });
+  const verifyBase = (ref) => {
+    try {
+      git("rev-parse", "--verify", "--end-of-options", `${ref}^{commit}`);
+      git("merge-base", "--is-ancestor", ref, baseRef);
+    } catch {
+      throw new Error(`Release baseline ${ref} is missing or is not an ancestor of ${baseRef}.`);
+    }
+    return ref;
+  };
+
+  if (baseTag) {
+    return verifyBase(baseTag);
+  }
+
+  const manifest = JSON.parse(readFileSync(resolve(root, ".release-please-manifest.json"), "utf8"));
+  const config = JSON.parse(readFileSync(resolve(root, "release-please-config.json"), "utf8"));
   const rootPackage = config.packages?.["."] ?? {};
   const packageName = rootPackage["package-name"];
   const version = manifest["."];
@@ -85,13 +96,40 @@ function getReleaseTag() {
     throw new Error("Cannot derive release tag from release-please config and manifest.");
   }
 
-  return rootPackage["include-v-in-tag"] === true
-    ? `${packageName}-v${version}`
-    : `${packageName}-${version}`;
+  if (config["last-release-sha"]) {
+    return verifyBase(config["last-release-sha"]);
+  }
+
+  const component = rootPackage["include-component-in-tag"] === false ? "" : `${packageName}-`;
+  const tag = `${component}${rootPackage["include-v-in-tag"] === true ? "v" : ""}${version}`;
+  const tagRef = `refs/tags/${tag}`;
+  let tagExists = false;
+  try {
+    git("rev-parse", "--verify", "--end-of-options", `${tagRef}^{commit}`);
+    tagExists = true;
+  } catch {
+    // A new fork has the upstream commits, but may not have its release tags.
+  }
+  if (tagExists) {
+    return verifyBase(tagRef);
+  }
+
+  const bootstrapSha = config["bootstrap-sha"];
+  if (
+    bootstrapSha &&
+    (!rootPackage["initial-version"] || version === rootPackage["initial-version"])
+  ) {
+    logger.info(`发布标签 ${tag} 不存在，使用首次发布基线 ${bootstrapSha}。`);
+    return verifyBase(bootstrapSha);
+  }
+
+  throw new Error(
+    `Release tag ${tag} is missing. Fetch the release tags, or configure bootstrap-sha and initial-version for the first release of this fork.`
+  );
 }
 
-function getAllowedCommitPrefixes(baseTag, baseRef) {
-  const commits = run("git", ["rev-list", `${baseTag}..${baseRef}`]);
+export function getAllowedCommitPrefixes(baseTag, baseRef, root = repoRoot) {
+  const commits = run("git", ["rev-list", `${baseTag}..${baseRef}`], { cwd: root });
 
   return new Set(
     commits
@@ -179,7 +217,7 @@ function main() {
    * 数据源：命令行参数、release-please manifest、Git 历史
    * 操作要点：
    *   1) 从 action 输出或参数解析 PR 编号
-   *   2) 从 manifest 推导上个发布 tag
+   *   2) 从 manifest 推导上个发布 tag，首次发布可使用配置的提交基线
    */
   logger.info("开始准备 release PR 校验上下文...");
 
@@ -203,7 +241,7 @@ function main() {
   }
 
   // 1.4 推导上个版本 tag 和合法提交集合
-  const baseTag = args.get("base-tag") ?? getReleaseTag();
+  const baseTag = getReleaseBase({ baseRef, baseTag: args.get("base-tag") });
   const allowedPrefixes = getAllowedCommitPrefixes(baseTag, baseRef);
   logger.info(`上下文准备完成, PR 数: ${prNumbers.length}, 合法提交数: ${allowedPrefixes.size}`);
 
@@ -227,4 +265,6 @@ function main() {
   logger.info("所有 release PR 检查完成。");
 }
 
-main();
+if (process.argv[1] && resolve(process.argv[1]) === scriptPath) {
+  main();
+}
