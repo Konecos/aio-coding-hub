@@ -394,7 +394,13 @@ async function main() {
   logger.info("[pnpm-audit] 开始执行依赖审计...");
 
   // 1.1 枚举 workspace 全部生产依赖
-  const result = spawnSync("pnpm", ["list", "-r", "--prod", "--depth", "Infinity", "--json"], {
+  // Windows installs pnpm as a .cmd shim, which requires cmd.exe to launch.
+  const command = process.platform === "win32" ? process.env.ComSpec || "cmd.exe" : "pnpm";
+  const args =
+    process.platform === "win32"
+      ? ["/d", "/s", "/c", "pnpm list -r --prod --depth Infinity --json"]
+      : ["list", "-r", "--prod", "--depth", "Infinity", "--json"];
+  const result = spawnSync(command, args, {
     cwd: repoRoot,
     encoding: "utf8",
     env: process.env,
