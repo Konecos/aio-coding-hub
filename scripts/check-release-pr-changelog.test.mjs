@@ -3,12 +3,12 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import { test } from "vitest";
 import { getAllowedCommitPrefixes, getReleaseBase } from "./check-release-pr-changelog.mjs";
 
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), "aio-release-baseline-"));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
   git("init", "--quiet");
   git("config", "user.name", "Release test");

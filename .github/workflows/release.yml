@@ -50,14 +50,20 @@ jobs:
           skip-github-pull-request: "${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore(main): release aio-coding-hub ') }}"
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
+      - name: Install pnpm for release PR checks
+        if: steps.release.outputs.prs_created == 'true'
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+
+      - name: Install deps for release PR checks
+        if: steps.release.outputs.prs_created == 'true'
+        run: pnpm install --frozen-lockfile
+
       - name: Check release PR changelog range
         if: steps.release.outputs.prs_created == 'true'
         env:
           RELEASE_PLEASE_PRS: ${{ steps.release.outputs.prs }}
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-        run: |
-          node --test scripts/check-release-pr-changelog.test.mjs
-          node scripts/check-release-pr-changelog.mjs
+        run: pnpm check:release-pr-changelog
 
   build:
     needs: release-please

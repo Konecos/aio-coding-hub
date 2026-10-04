@@ -40,6 +40,9 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -59,7 +62,9 @@ jobs:
         run: node scripts/support-matrix.homebrew-cask.selftest.mjs
 
       - name: Validate release changelog baseline handling
-        run: node --test scripts/check-release-pr-changelog.test.mjs
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm test:release-pr-changelog
 
   desktop-support-contract:
     needs: support-contract
