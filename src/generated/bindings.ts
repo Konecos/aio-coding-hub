@@ -492,6 +492,44 @@ export const commands = {
   async gatewayStatus(): Promise<GatewayStatus> {
     return await TAURI_INVOKE("gateway_status");
   },
+  async gatewayDiagnosticsSnapshot(): Promise<Result<DiagnosticSnapshot, string>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("gateway_diagnostics_snapshot") };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async gatewayDiagnosticsEvents(traceId: string): Promise<Result<DiagnosticEvent[], string>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("gateway_diagnostics_events", { traceId }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async gatewayDiagnosticsConfigure(
+    enabled: boolean,
+    retentionDays: number
+  ): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("gateway_diagnostics_configure", { enabled, retentionDays }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async gatewayDiagnosticsClear(): Promise<Result<null, string>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("gateway_diagnostics_clear") };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
   async gatewayCheckPortAvailable(port: number): Promise<Result<boolean, string>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("gateway_check_port_available", { port }) };
@@ -2765,6 +2803,35 @@ export type DesktopUpdaterMetadata = {
   version: string;
   date: string | null;
   body: string | null;
+};
+export type DiagnosticEvent = {
+  id: string;
+  phase: string;
+  created_at_ms: number;
+  metadata: string;
+  body: string;
+  body_encoding: string;
+  bytes_seen: number;
+  truncated: boolean;
+  complete: boolean;
+  note: string | null;
+};
+export type DiagnosticSnapshot = {
+  enabled: boolean;
+  retention_days: number;
+  stored_bytes: number;
+  dropped_messages: number;
+  last_error: string | null;
+  traces: DiagnosticTrace[];
+};
+export type DiagnosticTrace = {
+  trace_id: string;
+  cli_key: string;
+  method: string;
+  path: string;
+  created_at_ms: number;
+  status: number | null;
+  capture_limited: boolean;
 };
 export type EnvConflict = { var_name: string; source_type: string; source_path: string };
 export type FailoverAttempt = {

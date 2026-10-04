@@ -77,7 +77,19 @@ pub(in crate::gateway) async fn send(
     custom_headers: &HeaderMap,
     body: Bytes,
     deadline: Option<std::time::Instant>,
+    diagnostics: Option<(crate::gateway::diagnostics::Capture, u32)>,
 ) -> SendOutcome {
+    let diagnostic_metadata = diagnostics.as_ref().map(|(_, attempt)| {
+        crate::gateway::diagnostics::http_metadata(
+            &format!(
+                "供应商 {} · 尝试 {} · WebSocket {}",
+                provider_id,
+                attempt,
+                crate::gateway::diagnostics::safe_url(&url)
+            ),
+            &headers,
+        )
+    });
     let mut payload: Value = match serde_json::from_slice(&body) {
         Ok(Value::Object(object)) => Value::Object(object),
         _ => return SendOutcome::Local("invalid Responses request body"),
@@ -199,6 +211,11 @@ pub(in crate::gateway) async fn send(
     let serialized = payload.to_string();
     if serialized.len() > protocol::MAX_MESSAGE_BYTES {
         return SendOutcome::Local("Responses request exceeds WebSocket byte limit");
+    }
+    if let Some((capture, _)) = &diagnostics {
+        let mut body = capture.event("upstream_request", diagnostic_metadata.unwrap_or_default());
+        body.chunk(serialized.as_bytes());
+        body.finish(None);
     }
     let send_cap = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
     let send_deadline = deadline

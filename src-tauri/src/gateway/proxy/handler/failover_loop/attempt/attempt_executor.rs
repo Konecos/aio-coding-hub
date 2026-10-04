@@ -369,6 +369,8 @@ where
             &prepared.custom_headers,
             upstream_body.clone(),
             deadline,
+            crate::gateway::diagnostics::Capture::for_trace(ctx.trace_id)
+                .map(|capture| (capture, attempt_index)),
         )
         .await;
         timing.upstream_sent = match &outcome {
@@ -431,7 +433,15 @@ where
             }
             Some(deadline) => match tokio::time::timeout_at(
                 tokio::time::Instant::from_std(deadline),
-                send::send_upstream(ctx, input.req_method.clone(), url, headers, upstream_body),
+                send::send_upstream(
+                    ctx,
+                    input.req_method.clone(),
+                    url,
+                    headers,
+                    upstream_body,
+                    prepared.provider_id,
+                    attempt_index,
+                ),
             )
             .await
             {
@@ -439,13 +449,58 @@ where
                 Err(_) => send::SendResult::Timeout,
             },
             None => {
-                send::send_upstream(ctx, input.req_method.clone(), url, headers, upstream_body)
-                    .await
+                send::send_upstream(
+                    ctx,
+                    input.req_method.clone(),
+                    url,
+                    headers,
+                    upstream_body,
+                    prepared.provider_id,
+                    attempt_index,
+                )
+                .await
             }
         }
     } else {
-        send::send_upstream(ctx, input.req_method.clone(), url, headers, upstream_body).await
+        send::send_upstream(
+            ctx,
+            input.req_method.clone(),
+            url,
+            headers,
+            upstream_body,
+            prepared.provider_id,
+            attempt_index,
+        )
+        .await
     };
+
+    if let Some(capture) = crate::gateway::diagnostics::Capture::for_trace(ctx.trace_id) {
+        let reason = match &send_result {
+            send::SendResult::Timeout => Some("等待供应商首字节超时"),
+            send::SendResult::Err(err) if err.is_connect() => {
+                Some("供应商连接失败（DNS / TCP / TLS / 代理）")
+            }
+            send::SendResult::Err(_) => Some("供应商请求发送失败"),
+            _ => None,
+        };
+        if let Some(reason) = reason {
+            let details = match &send_result {
+                send::SendResult::Err(error) => {
+                    crate::gateway::diagnostics::transport_error_details(error, error.url())
+                }
+                _ => reason.to_string(),
+            };
+            capture
+                .event(
+                    "transport_error",
+                    format!(
+                        "供应商 {} · 尝试 {} · {}\n{}",
+                        prepared.provider_id, attempt_index, reason, details
+                    ),
+                )
+                .finish(Some(reason));
+        }
+    }
 
     if let send::SendResult::Err(err) = &send_result {
         // DNS/connect failures never reached the upstream; keep upstream_sent truthful

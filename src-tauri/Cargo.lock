@@ -48,6 +48,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "hostname",
+ "http-body",
  "if-addrs",
  "junction",
  "r2d2",

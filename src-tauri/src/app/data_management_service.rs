@@ -21,6 +21,8 @@ pub(crate) async fn reset_app_data<R: tauri::Runtime>(
     .await?;
     let _db_reset_guard = prepare_db_reset(db_state).await;
     blocking::run("app_data_reset", move || {
+        crate::gateway::diagnostics::init(&app)?;
+        crate::gateway::diagnostics::clear(true)?;
         data_management::app_data_reset(&app)
     })
     .await

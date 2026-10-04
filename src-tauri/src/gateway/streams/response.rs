@@ -72,6 +72,16 @@ impl UpstreamResponse {
     pub(crate) fn bytes_stream(self) -> UpstreamByteStream {
         self.body
     }
+
+    pub(in crate::gateway) fn capture(
+        mut self,
+        capture: crate::gateway::diagnostics::BodyCapture,
+    ) -> Self {
+        self.body = Box::pin(crate::gateway::diagnostics::CapturedStream::new(
+            self.body, capture,
+        ));
+        self
+    }
 }
 
 impl From<reqwest::Response> for UpstreamResponse {

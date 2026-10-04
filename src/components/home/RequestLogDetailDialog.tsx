@@ -30,6 +30,9 @@ import { useContributionsForSlot } from "../../plugins/contributions/useActiveCo
 import { HostRenderedContribution } from "../../plugins/contributions/HostRenderedContribution";
 import type { ContributionCommandHandler } from "../../plugins/contributions/types";
 import { logToConsole } from "../../services/consoleLog";
+import { isTauri } from "@tauri-apps/api/core";
+import { Button } from "../../ui/Button";
+import { DiagnosticCommunicationDialog } from "./DiagnosticCommunication";
 
 export type RequestLogDetailDialogProps = {
   selectedLogId: number | null;
@@ -53,6 +56,7 @@ export function RequestLogDetailDialog({
   onSelectLogId,
 }: RequestLogDetailDialogProps) {
   const [activeTab, setActiveTab] = useState<string>("summary");
+  const [communicationOpen, setCommunicationOpen] = useState(false);
   const { contributions: logDetailTabContributions } = useContributionsForSlot("logs.detail.tabs");
   const { traces } = useTraceStore();
   const selectedLogQuery = useRequestLogDetailQuery(selectedLogId);
@@ -169,6 +173,7 @@ export function RequestLogDetailDialog({
         if (!open) {
           onSelectLogId(null);
           setActiveTab("summary");
+          setCommunicationOpen(false);
         }
       }}
       title="代理记录详情"
@@ -182,6 +187,19 @@ export function RequestLogDetailDialog({
         </div>
       ) : (
         <div className="space-y-3">
+          {isTauri() && (
+            <Button size="sm" variant="secondary" onClick={() => setCommunicationOpen(true)}>
+              查看驻留通信
+            </Button>
+          )}
+          {communicationOpen && selectedLog && (
+            <DiagnosticCommunicationDialog
+              key={selectedLog.trace_id}
+              open
+              onOpenChange={setCommunicationOpen}
+              initialTraceId={selectedLog.trace_id}
+            />
+          )}
           <TabList<string>
             ariaLabel="日志详情"
             items={detailTabs}

@@ -16,7 +16,24 @@ pub(super) async fn send_upstream<R: tauri::Runtime>(
     url: reqwest::Url,
     headers: HeaderMap,
     body: Bytes,
+    provider_id: i64,
+    attempt_index: u32,
 ) -> SendResult {
+    if let Some(capture) = crate::gateway::diagnostics::Capture::for_trace(ctx.trace_id) {
+        let metadata = crate::gateway::diagnostics::http_metadata(
+            &format!(
+                "供应商 {} · 尝试 {} · {} {}",
+                provider_id,
+                attempt_index,
+                method,
+                crate::gateway::diagnostics::safe_url(&url)
+            ),
+            &headers,
+        );
+        let mut capture_body = capture.event("upstream_request", metadata);
+        capture_body.chunk(&body);
+        capture_body.finish(None);
+    }
     let client = ctx.state.client();
     let send = client
         .request(method, url)

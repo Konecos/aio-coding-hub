@@ -125,6 +125,17 @@ where
             loop_state.attempts.clone(),
         )),
         AttemptSendOutcome::WsTransport(reason, timing) => {
+            if let Some(capture) = crate::gateway::diagnostics::Capture::for_trace(ctx.trace_id) {
+                capture
+                    .event(
+                        "transport_error",
+                        format!(
+                            "供应商 {} · 尝试 {} · WebSocket {}",
+                            prepared.provider_id, indices.attempt_index, reason
+                        ),
+                    )
+                    .finish(Some(reason));
+            }
             ws_attempt::transport_failure(ctx, input, prepared, indices, timing, reason, loop_state)
                 .await
         }
