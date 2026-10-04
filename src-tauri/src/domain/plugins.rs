@@ -1146,7 +1146,7 @@ fn validate_host_compatibility(
         ));
     };
 
-    if !matches_version_range(&compatibility.app, host) {
+    if !matches_plugin_host_version(&compatibility.app, host) {
         return Err(PluginValidationError::new(
             "PLUGIN_INCOMPATIBLE_HOST",
             format!(
@@ -1170,6 +1170,16 @@ fn validate_host_compatibility(
     }
 
     Ok(())
+}
+
+pub(crate) fn matches_plugin_host_version(range: &str, version: (u64, u64, u64)) -> bool {
+    // Fork releases use major 100; plugin compatibility follows the upstream 0.x version.
+    let compatibility_version = if version.0 == 100 {
+        (0, version.1, version.2)
+    } else {
+        version
+    };
+    matches_version_range(range, compatibility_version)
 }
 
 fn matches_version_range(range: &str, version: (u64, u64, u64)) -> bool {
@@ -1745,6 +1755,34 @@ mod tests {
         let manifest: PluginManifest = serde_json::from_value(raw).unwrap();
         let err = validate_manifest(&manifest, "0.62.0").unwrap_err();
         assert_eq!(err.code, "PLUGIN_INCOMPATIBLE_HOST");
+    }
+
+    #[test]
+    fn manifest_accepts_fork_release_with_matching_upstream_host_version() {
+        let manifest: PluginManifest =
+            serde_json::from_value(valid_extension_host_manifest()).unwrap();
+        validate_manifest(&manifest, "100.62.0").unwrap();
+        validate_manifest(&manifest, "0.62.0").unwrap();
+
+        for host_version in ["100.61.0", "1.62.0", "101.62.0"] {
+            let err = validate_manifest(&manifest, host_version).unwrap_err();
+            assert_eq!(err.code, "PLUGIN_INCOMPATIBLE_HOST");
+        }
+    }
+
+    #[test]
+    fn manifest_fork_compatibility_keeps_host_and_plugin_api_bounds() {
+        let mut raw = valid_extension_host_manifest();
+        raw["hostCompatibility"]["app"] = serde_json::json!(">=9.0.0");
+        let manifest: PluginManifest = serde_json::from_value(raw).unwrap();
+        let err = validate_manifest(&manifest, "100.62.0").unwrap_err();
+        assert_eq!(err.code, "PLUGIN_INCOMPATIBLE_HOST");
+
+        let mut raw = valid_extension_host_manifest();
+        raw["hostCompatibility"]["pluginApi"] = serde_json::json!("^2.0.0");
+        let manifest: PluginManifest = serde_json::from_value(raw).unwrap();
+        let err = validate_manifest(&manifest, "100.62.0").unwrap_err();
+        assert_eq!(err.code, "PLUGIN_INCOMPATIBLE_API");
     }
 
     #[test]

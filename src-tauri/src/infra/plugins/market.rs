@@ -212,44 +212,7 @@ fn matches_version_range(range: &str, host_version: &str) -> bool {
     let Some(version) = parse_semver(host_version) else {
         return false;
     };
-    let mut saw_constraint = false;
-    for part in range.split_whitespace() {
-        let part = part.trim();
-        if part.is_empty() {
-            continue;
-        }
-        saw_constraint = true;
-        if let Some(raw) = part.strip_prefix(">=") {
-            let Some(bound) = parse_semver(raw) else {
-                return false;
-            };
-            if version < bound {
-                return false;
-            }
-        } else if let Some(raw) = part.strip_prefix('<') {
-            let Some(bound) = parse_semver(raw) else {
-                return false;
-            };
-            if version >= bound {
-                return false;
-            }
-        } else if let Some(raw) = part.strip_prefix('^') {
-            let Some(bound) = parse_semver(raw) else {
-                return false;
-            };
-            if version < bound || version.0 != bound.0 {
-                return false;
-            }
-        } else {
-            let Some(bound) = parse_semver(part) else {
-                return false;
-            };
-            if version != bound {
-                return false;
-            }
-        }
-    }
-    saw_constraint
+    crate::domain::plugins::matches_plugin_host_version(range, version)
 }
 
 fn compare_semver(left: &str, right: &str) -> std::cmp::Ordering {
@@ -387,6 +350,28 @@ mod tests {
         assert!(prompt_tools.compatible);
         assert!(prompt_tools.update_available);
         assert_eq!(prompt_tools.install_block_reason, None);
+    }
+
+    #[test]
+    fn plugin_market_fork_release_uses_upstream_compatibility_bounds() {
+        let listings = parse_market_index(
+            market_index().to_string().as_bytes(),
+            None,
+            "100.60.20",
+            &HashMap::new(),
+        )
+        .unwrap();
+        let prompt_tools = listings
+            .iter()
+            .find(|item| item.plugin_id == "community.prompt-tools")
+            .unwrap();
+        assert!(prompt_tools.compatible);
+        assert_eq!(prompt_tools.latest_version.as_deref(), Some("1.1.0"));
+        let future_only = listings
+            .iter()
+            .find(|item| item.plugin_id == "community.future-only")
+            .unwrap();
+        assert!(!future_only.compatible);
     }
 
     #[test]
