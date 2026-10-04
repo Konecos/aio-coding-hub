@@ -32,6 +32,30 @@ pub(crate) struct OAuthLimitsResult {
     pub raw_json: Option<serde_json::Value>,
 }
 
+pub(crate) fn quota_retry_after_hint(response: &reqwest::Response) -> String {
+    let Some(text) = response
+        .headers()
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|v| v.to_str().ok())
+    else {
+        return String::new();
+    };
+    let seconds = text
+        .trim()
+        .parse::<i64>()
+        .ok()
+        .or_else(|| {
+            chrono::DateTime::parse_from_rfc2822(text).ok().map(|date| {
+                date.timestamp()
+                    .saturating_sub(crate::shared::time::now_unix_seconds())
+            })
+        })
+        .filter(|seconds| *seconds > 0);
+    seconds
+        .map(|seconds| format!("; retry_after_seconds={seconds}"))
+        .unwrap_or_default()
+}
+
 pub(crate) trait OAuthProvider: Send + Sync {
     fn cli_key(&self) -> &'static str;
     fn provider_type(&self) -> &'static str;

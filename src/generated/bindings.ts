@@ -932,6 +932,14 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async providerOauthQuotaStates(): Promise<Result<OAuthQuotaState[], string>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("provider_oauth_quota_states") };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
   async providerOauthFetchLimits(
     providerId: number
   ): Promise<Result<ProviderOAuthLimitsResult, string>> {
@@ -3315,6 +3323,17 @@ export type ModelRedirect = {
 };
 export type NoticeLevel = "info" | "success" | "warning" | "error";
 export type NoticeSendInput = { level: NoticeLevel; title: string | null; body: string };
+export type OAuthQuotaState = {
+  provider_id: number;
+  protection_enabled: boolean;
+  short_stop_percent: number | null;
+  long_stop_percent: number | null;
+  state: string;
+  checked_at: number | null;
+  reset_at: number | null;
+  last_error: string | null;
+  limits: ProviderOAuthLimitsResult | null;
+};
 export type PluginAuditLog = {
   id: number;
   plugin_id: string | null;
@@ -3816,6 +3835,8 @@ export type ProviderOAuthDeviceCodeStartResult = {
 };
 export type ProviderOAuthDisconnectResult = { success: boolean };
 export type ProviderOAuthLimitsResult = {
+  short_remaining_percent: number | null;
+  long_remaining_percent: number | null;
   limit_short_label: string | null;
   limit_5h_text: string | null;
   limit_weekly_text: string | null;
@@ -3857,6 +3878,8 @@ export type ProviderSummary = {
   enabled: boolean;
   priority: number;
   cost_multiplier: number;
+  oauth_short_window_stop_percent: number | null;
+  oauth_long_window_stop_percent: number | null;
   limit_5h_usd: number | null;
   limit_daily_usd: number | null;
   daily_reset_mode: DailyResetMode;
@@ -3894,6 +3917,8 @@ export type ProviderUpsertInput = {
   priority: number | null;
   claudeModels: ClaudeModels | null;
   modelPolicy: ProviderModelPolicyV1 | null;
+  oauthShortWindowStopPercent: number | null;
+  oauthLongWindowStopPercent: number | null;
   limit5hUsd: number | null;
   limitDailyUsd: number | null;
   dailyResetMode: DailyResetMode | null;

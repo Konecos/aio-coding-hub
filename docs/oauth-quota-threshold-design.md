@@ -1,6 +1,6 @@
 # OAuth 剩余额度阈值控制设计
 
-状态：设计提案，尚未实现。
+状态：已实现。
 
 ## 目标与范围
 
@@ -10,14 +10,15 @@
 
 第一版使用供应商级规则，分别配置短窗、长窗阈值；不增加全局继承、模型级阈值或独立恢复阈值。
 
-## 当前实现与复用位置
+## 实现位置
 
-- `src-tauri/src/domain/provider_oauth_limits.rs`：SQLite 持久化 OAuth 额度快照；现有 `gate_snapshot` 识别显示文本中的零额度，按重置时间阻止路由，没有重置时间时使用五分钟冷却。
-- `src-tauri/src/gateway/proxy/handler/failover_loop/prepare/provider_limits.rs`：请求准备阶段已经执行 OAuth 额度门禁，可在现有故障转移链路上扩展。
-- `src-tauri/src/gateway/proxy/handler/failover_loop/prepare/provider_checks.rs`：当前额度跳过原因统一记为 `rate_limit`，需要区分主动阈值保护、实际额度耗尽和额度无法确认。
-- `src-tauri/src/commands/providers/oauth_limits.rs`：额度获取、Token 刷新和快照写入目前在命令层；Codex / Claude 百分比被格式化成取整后的文本。
-- `src-tauri/src/gateway/oauth/adapters/gemini.rs`：Gemini 展示可能是剩余次数，也可能是百分比；当前优先显示次数，不能直接将文本里的数字作为百分比。
-- `src/query/providers.ts` 与首页、供应商卡片：目前额度刷新主要通过前端手动触发。已有后台 OAuth 循环刷新的是 Token，需要增加独立的额度刷新职责。
+- `src-tauri/src/domain/provider_oauth_limits.rs`：持久化原始精度百分比，统一判断耗尽、阈值命中和待确认；快照写入通过版本检查防止迟到结果覆盖。
+- `src-tauri/src/app/oauth_quota_service.rs`：共享额度获取、Token 刷新、适配器解析及快照写入；命令层保留薄包装。
+- `src-tauri/src/app/oauth_quota_runtime.rs`：后台调度、共享查询锁、并发限制、退避和供界面读取的缓存状态。
+- `src-tauri/src/gateway/proxy/handler/failover_loop/prepare/`：普通请求和 CX2CC 源供应商门禁，保护跳过不计入熔断失败。
+- `src-tauri/src/gateway/responses_ws/ingress.rs`：每个新推理请求重新经过网关链路，并将本地网关错误转换为可识别的 WebSocket 错误事件。
+- `src-tauri/src/gateway/oauth/adapters/gemini.rs`：保持每个桶的百分比与重置时间配对，按窗口内最小值聚合，只有次数时保持百分比未知。
+- `src/query/oauthQuotaStates.ts`、供应商编辑窗口、首页及供应商卡片：读取后端缓存决策并展示保护配置和状态。
 
 ## 配置与界面
 
@@ -82,7 +83,7 @@
 
 ## 后端刷新与请求链路
 
-将获取额度逻辑下沉为共享应用服务，手动刷新、后台刷新、额度重置后的确认都调用同一服务，统一 Token 刷新、适配器解析、快照写入及事件通知。
+获取额度逻辑已下沉为共享应用服务，手动刷新和后台刷新复用同一查询路径。手动重置保留原有兑换流程，其额度确认复用解析、版本校验和快照写入，并与刷新操作共享供应商锁及全局并发限制。
 
 网关启动时立即刷新已启用且配置保护的 OAuth 供应商；之后第一版每 60 秒刷新，成功快照有效期 120 秒。使用当前决策时间判断有效期及重置时间，避免长请求沿用请求创建时间。
 
@@ -92,7 +93,7 @@
 - 出错后建议按 60 / 120 / 300 秒退避，加入抖动；上游提供有效 `Retry-After` 时遵守。用户手动刷新仍受并发及上游限流约束。
 - 只刷新已启用且配置保护的供应商；因额度保护被暂停的供应商仍需刷新，用户手动禁用的供应商退出自动轮询。
 - 网关停止时终止后台任务，重启后按持久化快照有效性重新判断。
-- 请求路由只读取本地状态；数据未知或过期时跳过并投递去重刷新任务，不在每个推理请求前查询上游额度接口。
+- 请求路由只读取本地状态；数据未知或过期时跳过，由每 5 秒检查一次的后台调度完成刷新，不在每个推理请求前查询上游额度接口。
 - 快照成功更新及配置变更后向前端通知失效，前端从后端读取状态；状态展示不能自行用显示文本推断。
 
 正常情况下，阈值命中被发现可能滞后约一个刷新周期，加上上游自身的统计延迟。高并发、长请求和其他客户端用量可能继续降低剩余额度，因此界面应明确这是基于最近额度数据的请求分配保护。
@@ -120,7 +121,7 @@ oauth_long_window_stop_percent: integer | null
 - 老快照的结构化数值迁移为 `null`，等待重新获取，避免把已取整文本反推成准确值。未配置规则仍保留现有耗尽拦截兼容性。
 - 查询、写入及后台任务必须防止账号更换、删除供应商、停止网关后迟到的查询结果覆盖新状态；所有入口共用去重及账号版本校验。真实耗尽事件不得被更早开始、稍后完成的旧额度查询覆盖。
 
-扩展 `OAuthLimitGate` 返回结构化原因，而不是只有 `Allow / Limited`：至少能够区分 `threshold_reached`、`quota_exhausted`、`quota_unverified`，并携带窗口、剩余百分比、阈值、快照时间、预计重置时间。后台判断、请求判断和前端状态读取复用同一决策函数。
+`OAuthLimitGate` 返回 `Allow / Limited / Threshold / Unverified`，区分 `threshold_reached`、`quota_exhausted`、`quota_unverified`。`OAuthQuotaState` 提供规则、原始百分比、快照时间、预计重置时间和最后刷新错误。后台判断、请求判断和前端状态读取复用同一决策函数。
 
 ## 实施顺序与验收
 
@@ -132,3 +133,13 @@ oauth_long_window_stop_percent: integer | null
 验收覆盖：等于阈值、原始精度边界、双窗任一命中、关闭及 0% 规则、缺失或过期数据、刷新失败、重置到期待确认、调低 / 调高阈值、账号切换、迟到结果、Gemini 次数与百分比区分、暂停期间继续轮询、全部供应商受限及故障转移、WebSocket 后续请求、流不中断和源供应商约束。
 
 实现时执行必要的前端类型 / 契约检查和相关 Rust / 前端测试，按阶段使用中文 Conventional Commits 提交。遵守仓库约定，启动服务器及视觉验证另需用户明确许可。
+
+## 验证记录
+
+- OAuth 后端相关测试：120 项通过，覆盖原始精度、双窗规则、未知和过期、账号更换与迟到结果、迁移、配置导入导出、HTTP 故障转移及 WebSocket 后续请求。
+- 消费金额门禁回归：21 项通过。
+- WebSocket 链路回归：73 项通过，2 项需要真实 Codex CLI 的测试按原有标记跳过；门禁汇总分类测试通过。
+- 前端相关测试：11 个文件共 225 项通过；补充 Gemini 聚合说明后，编辑窗口 77 项复测通过。
+- 前端类型、Lint、网关错误码同步、生成 IPC 类型一致性及 `no-instant-now-sub` 检查通过。
+- Rust 全目标 Clippy（警告视为错误）检查通过。
+- 未启动应用或开发服务器，未进行视觉验证。保护依据最近成功快照，仍存在轮询和上游统计延迟。

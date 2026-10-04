@@ -104,6 +104,10 @@ pub struct ProviderExport {
     pub enabled: bool,
     pub priority: i64,
     pub cost_multiplier: f64,
+    #[serde(default)]
+    pub oauth_short_window_stop_percent: Option<i64>,
+    #[serde(default)]
+    pub oauth_long_window_stop_percent: Option<i64>,
     pub limit_5h_usd: Option<f64>,
     pub limit_daily_usd: Option<f64>,
     pub limit_weekly_usd: Option<f64>,

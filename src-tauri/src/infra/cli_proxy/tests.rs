@@ -259,6 +259,8 @@ fn codex_provider_with_mapping(source: &str) -> ProviderUpsertParams {
                 target: "mapped-upstream-model".to_string(),
             }],
         }),
+        oauth_short_window_stop_percent: None,
+        oauth_long_window_stop_percent: None,
         limit_5h_usd: None,
         limit_daily_usd: None,
         daily_reset_mode: Some(DailyResetMode::Fixed),

@@ -38,6 +38,25 @@ function makeContext(
   };
 }
 
+it("submits OAuth thresholds and clears them for API key providers", () => {
+  const formValues = {
+    ...DEFAULT_FORM_VALUES,
+    name: "quota",
+    api_key: "sk-test",
+    oauth_short_window_stop_percent: "10",
+    oauth_long_window_stop_percent: "0",
+  };
+  const oauth = buildProviderEditorUpsertInput(makeContext({ authMode: "oauth", formValues }));
+  expect(oauth.ok).toBe(true);
+  if (oauth.ok) {
+    expect(oauth.value.payload.oauthShortWindowStopPercent).toBe(10);
+    expect(oauth.value.payload.oauthLongWindowStopPercent).toBe(0);
+  }
+  const api = buildProviderEditorUpsertInput(makeContext({ formValues }));
+  expect(api.ok).toBe(true);
+  if (api.ok) expect(api.value.payload.oauthShortWindowStopPercent).toBeNull();
+});
+
 describe("pages/providers/providerEditorSubmitModel", () => {
   it.each([
     ["codex", "api_key", true],

@@ -518,6 +518,8 @@ fn config_import_v2_restores_full_prompt_and_skill_payload() {
             enabled: true,
             priority: 100,
             cost_multiplier: 1.25,
+            oauth_short_window_stop_percent: None,
+            oauth_long_window_stop_percent: None,
             limit_5h_usd: Some(1.0),
             limit_daily_usd: Some(2.0),
             limit_weekly_usd: Some(3.0),
@@ -1063,6 +1065,34 @@ fn supports_websockets_import_rejects_incompatible_providers_and_rolls_back() {
             .expect("no invalid provider")
             .is_empty());
     }
+}
+
+#[test]
+fn oauth_thresholds_export_import_and_legacy_defaults() {
+    let test_app = ConfigMigrateTestApp::new();
+    let app = test_app.handle();
+    let conn = test_app.db.open_connection().unwrap();
+    insert_supports_websockets_provider(&conn);
+    conn.execute("UPDATE providers SET oauth_short_window_stop_percent = 10, oauth_long_window_stop_percent = 0", []).unwrap();
+    drop(conn);
+    let bundle = config_export(&app, &test_app.db).unwrap();
+    assert_eq!(
+        bundle.providers[0].oauth_short_window_stop_percent,
+        Some(10)
+    );
+    assert_eq!(bundle.providers[0].oauth_long_window_stop_percent, Some(0));
+    config_import(&app, &test_app.db, bundle).unwrap();
+    let rows = crate::providers::list_by_cli(&test_app.db, "codex").unwrap();
+    assert_eq!(rows[0].oauth_short_window_stop_percent, Some(10));
+    assert_eq!(rows[0].oauth_long_window_stop_percent, Some(0));
+    let mut legacy = serde_json::to_value(config_export(&app, &test_app.db).unwrap()).unwrap();
+    let provider = legacy["providers"][0].as_object_mut().unwrap();
+    provider.remove("oauth_short_window_stop_percent");
+    provider.remove("oauth_long_window_stop_percent");
+    config_import(&app, &test_app.db, serde_json::from_value(legacy).unwrap()).unwrap();
+    let rows = crate::providers::list_by_cli(&test_app.db, "codex").unwrap();
+    assert_eq!(rows[0].oauth_short_window_stop_percent, None);
+    assert_eq!(rows[0].oauth_long_window_stop_percent, None);
 }
 
 #[test]

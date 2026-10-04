@@ -15,6 +15,8 @@ export type ProviderEditorInitialValues = {
   claude_models: ClaudeModels;
   enabled: boolean;
   cost_multiplier: number;
+  oauth_short_window_stop_percent?: number | null;
+  oauth_long_window_stop_percent?: number | null;
   limit_5h_usd: number | null;
   limit_daily_usd: number | null;
   daily_reset_mode: "fixed" | "rolling";
@@ -72,6 +74,8 @@ export function buildDuplicatedProviderInitialValues(
     claude_models: { ...(provider.claude_models ?? {}) } as ClaudeModels,
     enabled: provider.enabled,
     cost_multiplier: provider.cost_multiplier,
+    oauth_short_window_stop_percent: provider.oauth_short_window_stop_percent ?? null,
+    oauth_long_window_stop_percent: provider.oauth_long_window_stop_percent ?? null,
     limit_5h_usd: provider.limit_5h_usd,
     limit_daily_usd: provider.limit_daily_usd,
     daily_reset_mode: provider.daily_reset_mode,

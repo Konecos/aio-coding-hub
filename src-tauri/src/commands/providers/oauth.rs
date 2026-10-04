@@ -213,7 +213,7 @@ fn decode_codex_id_token_claims(id_token: &str) -> Option<CodexIdTokenClaims> {
     serde_json::from_slice::<CodexIdTokenClaims>(&decoded).ok()
 }
 
-pub(super) fn extract_codex_identity(id_token: Option<&str>) -> (Option<String>, Option<String>) {
+pub(crate) fn extract_codex_identity(id_token: Option<&str>) -> (Option<String>, Option<String>) {
     let claims = id_token.and_then(decode_codex_id_token_claims);
     let account_id = claims.as_ref().and_then(|value| {
         value.chatgpt_account_id.clone().or_else(|| {
@@ -434,7 +434,6 @@ pub(crate) async fn provider_oauth_start_flow(
                 token_expires_at,
                 email.as_deref(),
             )?;
-            crate::domain::provider_oauth_limits::clear_snapshot(&db, provider_id)?;
             Ok(())
         })
     })
@@ -448,6 +447,7 @@ pub(crate) async fn provider_oauth_start_flow(
         format!("OAuth 登录成功：provider_id={provider_id} type={provider_type}"),
     );
 
+    crate::app::oauth_quota_runtime::notify(&app_handle, provider_id);
     Ok(ProviderOAuthStartFlowResult {
         success: true,
         provider_id,
@@ -739,7 +739,6 @@ pub(crate) async fn provider_oauth_poll_device_flow(
                 token_expires_at,
                 email.as_deref(),
             )?;
-            crate::domain::provider_oauth_limits::clear_snapshot(&db, provider_id)?;
             Ok(())
         })
     })
@@ -753,6 +752,7 @@ pub(crate) async fn provider_oauth_poll_device_flow(
         format!("OAuth 设备码登录成功：provider_id={provider_id} type={provider_type}"),
     );
 
+    crate::app::oauth_quota_runtime::notify(&app, provider_id);
     Ok(ProviderOAuthDeviceCodePollResult {
         completed: true,
         provider_id,
@@ -967,14 +967,14 @@ pub(crate) async fn provider_oauth_disconnect(
     db_state: tauri::State<'_, DbInitState>,
     provider_id: i64,
 ) -> Result<ProviderOAuthDisconnectResult, String> {
-    let db = ensure_db_ready(app, db_state.inner()).await?;
+    let db = ensure_db_ready(app.clone(), db_state.inner()).await?;
     blocking::run("provider_oauth_disconnect", move || {
         crate::providers::clear_oauth(&db, provider_id)?;
-        crate::domain::provider_oauth_limits::clear_snapshot(&db, provider_id)?;
         Ok::<(), crate::shared::error::AppError>(())
     })
     .await
     .map_err(Into::<String>::into)?;
+    crate::app::oauth_quota_runtime::notify(&app, provider_id);
     Ok(ProviderOAuthDisconnectResult { success: true })
 }
 
@@ -1022,7 +1022,7 @@ pub(crate) async fn provider_oauth_status(
     }
 }
 
-pub(super) fn oauth_details_can_refresh(details: &crate::providers::ProviderOAuthDetails) -> bool {
+pub(crate) fn oauth_details_can_refresh(details: &crate::providers::ProviderOAuthDetails) -> bool {
     details
         .oauth_refresh_token
         .as_deref()
@@ -1043,7 +1043,7 @@ pub(super) fn oauth_details_can_refresh(details: &crate::providers::ProviderOAut
             .is_some()
 }
 
-pub(super) fn effective_oauth_access_token(
+pub(crate) fn effective_oauth_access_token(
     details: &crate::providers::ProviderOAuthDetails,
     adapter: &'static dyn crate::gateway::oauth::provider_trait::OAuthProvider,
 ) -> Result<String, String> {
@@ -1061,7 +1061,7 @@ pub(super) fn effective_oauth_access_token(
     Ok(token)
 }
 
-pub(super) async fn refresh_oauth_details_for_limits(
+pub(crate) async fn refresh_oauth_details_for_limits(
     db: &crate::db::Db,
     client: &reqwest::Client,
     details: &crate::providers::ProviderOAuthDetails,
@@ -1167,7 +1167,7 @@ pub(super) async fn refresh_oauth_details_for_limits(
     .map_err(Into::<String>::into)
 }
 
-pub(super) fn should_retry_oauth_limits_after_refresh(err: &str) -> bool {
+pub(crate) fn should_retry_oauth_limits_after_refresh(err: &str) -> bool {
     err.contains("401 Unauthorized") || err.contains("403 Forbidden")
 }
 

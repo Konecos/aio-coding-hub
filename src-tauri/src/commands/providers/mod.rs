@@ -1,9 +1,9 @@
 mod claude_terminal;
 mod crud;
 mod model_discovery;
-mod oauth;
+pub(crate) mod oauth;
 mod oauth_limits;
-mod oauth_reset;
+pub(crate) mod oauth_reset;
 
 pub(crate) use claude_terminal::*;
 pub(crate) use crud::*;

@@ -1,3 +1,4 @@
+import { useOAuthQuotaStates } from "../../../query/oauthQuotaStates";
 import { useCallback, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { HomeOAuthQuotaRow } from "../../../components/home/homeOAuthQuotaTypes";
@@ -109,6 +110,7 @@ export function useHomeOAuthQuota({
   enabled = true,
 }: UseHomeOAuthQuotaOptions): UseHomeOAuthQuotaResult {
   const queryClient = useQueryClient();
+  const backendQuotas = useOAuthQuotaStates(enabled);
   const claudeProvidersQuery = useProvidersListQuery("claude", { enabled });
   const codexProvidersQuery = useProvidersListQuery("codex", { enabled });
   const geminiProvidersQuery = useProvidersListQuery("gemini", { enabled });
@@ -175,11 +177,14 @@ export function useHomeOAuthQuota({
       const error = providerErrors[provider.providerId] ?? null;
       const resetError = resetErrors[provider.providerId] ?? null;
       const resetting = resettingProviderIds.has(provider.providerId);
-      const limits = readProviderOAuthLimitsCache(queryClient, provider.providerId);
+      const quotaState = backendQuotas.data?.find((row) => row.provider_id === provider.providerId);
+      const limits =
+        quotaState?.limits ?? readProviderOAuthLimitsCache(queryClient, provider.providerId);
 
       if (error) {
         return {
           ...provider,
+          quotaState,
           state: "error",
           limits,
           error,
@@ -191,6 +196,7 @@ export function useHomeOAuthQuota({
       if (refreshingProviderIds.has(provider.providerId)) {
         return {
           ...provider,
+          quotaState,
           state: "loading",
           limits,
           error: null,
@@ -202,6 +208,7 @@ export function useHomeOAuthQuota({
       if (limits) {
         return {
           ...provider,
+          quotaState,
           state: "success",
           limits,
           error: null,
@@ -212,6 +219,7 @@ export function useHomeOAuthQuota({
 
       return {
         ...provider,
+        quotaState,
         state: "idle",
         limits: null,
         error: null,
@@ -220,6 +228,7 @@ export function useHomeOAuthQuota({
       };
     });
   }, [
+    backendQuotas.data,
     oauthProviders,
     providerErrors,
     queryClient,
@@ -245,7 +254,7 @@ export function useHomeOAuthQuota({
       const settled = await Promise.allSettled(
         providers.map(async (provider) => {
           await refreshProviderOAuthLimits(queryClient, provider.providerId, {
-            resetCircuitAfterRefresh: true,
+            resetCircuitAfterRefresh: false,
           });
           return provider.providerId;
         })
@@ -303,7 +312,7 @@ export function useHomeOAuthQuota({
 
       try {
         const result = await resetProviderOAuthCodexQuota(queryClient, target.providerId, {
-          resetCircuitAfterRefresh: true,
+          resetCircuitAfterRefresh: false,
         });
         if (result.refresh_error) {
           setResetErrors((current) => ({

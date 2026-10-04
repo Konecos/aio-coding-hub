@@ -65,6 +65,8 @@ describe("services/providers via MSW bridge", () => {
       name: "Bridge Provider",
       base_urls: ["https://api.example.com"],
       base_url_mode: "order",
+      oauth_short_window_stop_percent: null,
+      oauth_long_window_stop_percent: null,
       limit_5h_usd: 5,
       daily_reset_mode: "fixed",
       daily_reset_time: "01:02:03",
@@ -76,6 +78,8 @@ describe("services/providers via MSW bridge", () => {
     expect(getProvidersState("claude")).toHaveLength(1);
     expect(getProvidersState("claude")[0]).toMatchObject({
       name: "Bridge Provider",
+      oauth_short_window_stop_percent: null,
+      oauth_long_window_stop_percent: null,
       limit_5h_usd: 5,
     });
   });

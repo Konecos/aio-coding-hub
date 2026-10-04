@@ -33,3 +33,6 @@ pub(crate) mod startup_state;
 pub(crate) mod startup_tasks;
 pub(crate) mod startup_wsl;
 pub(crate) mod window_chrome;
+
+pub(crate) mod oauth_quota_runtime;
+pub(crate) mod oauth_quota_service;

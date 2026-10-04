@@ -12,6 +12,8 @@ function makeRow(partial: Partial<HomeOAuthQuotaRow>): HomeOAuthQuotaRow {
     enabled: true,
     state: "success",
     limits: {
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "61%",
       limit_weekly_text: "92%",
@@ -75,6 +77,8 @@ describe("components/home/HomeOAuthQuotaPanel", () => {
         rows={[
           makeRow({
             limits: {
+              short_remaining_percent: null,
+              long_remaining_percent: null,
               limit_short_label: "5h",
               limit_5h_text: "61%",
               limit_weekly_text: "0%",
@@ -99,6 +103,8 @@ describe("components/home/HomeOAuthQuotaPanel", () => {
         rows={[
           makeRow({
             limits: {
+              short_remaining_percent: null,
+              long_remaining_percent: null,
               limit_short_label: "5h",
               limit_5h_text: "0%",
               limit_weekly_text: "92%",
@@ -125,6 +131,8 @@ describe("components/home/HomeOAuthQuotaPanel", () => {
         rows={[
           makeRow({
             limits: {
+              short_remaining_percent: null,
+              long_remaining_percent: null,
               limit_short_label: "5h",
               limit_5h_text: "1%",
               limit_weekly_text: "1%",
@@ -152,6 +160,8 @@ describe("components/home/HomeOAuthQuotaPanel", () => {
           makeRow({
             cliKey: "gemini",
             limits: {
+              short_remaining_percent: null,
+              long_remaining_percent: null,
               limit_short_label: "短窗",
               limit_5h_text: "0",
               limit_weekly_text: "3",
@@ -193,6 +203,8 @@ describe("components/home/HomeOAuthQuotaPanel", () => {
           makeRow({
             state: "success",
             limits: {
+              short_remaining_percent: null,
+              long_remaining_percent: null,
               limit_short_label: "5h",
               limit_5h_text: null,
               limit_weekly_text: null,

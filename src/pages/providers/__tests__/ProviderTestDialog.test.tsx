@@ -14,6 +14,8 @@ function makeProvider(partial: Partial<ProviderSummary> = {}): ProviderSummary {
     enabled: true,
     priority: 0,
     cost_multiplier: 1.0,
+    oauth_short_window_stop_percent: null,
+    oauth_long_window_stop_percent: null,
     limit_5h_usd: null,
     limit_daily_usd: null,
     daily_reset_mode: "fixed",

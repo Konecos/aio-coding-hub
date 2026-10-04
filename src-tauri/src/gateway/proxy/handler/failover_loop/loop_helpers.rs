@@ -94,7 +94,17 @@ pub(super) fn is_gate_only_skipped_attempt(attempt: &FailoverAttempt) -> bool {
 
     matches!(
         attempt.reason_code,
-        Some(dc::REASON_CIRCUIT_OPEN | dc::REASON_CIRCUIT_COOLDOWN | dc::REASON_RATE_LIMITED)
+        Some(
+            dc::REASON_CIRCUIT_OPEN
+                | dc::REASON_CIRCUIT_COOLDOWN
+                | dc::REASON_RATE_LIMITED
+                | "threshold_reached"
+                | "quota_unverified"
+                | "quota_exhausted"
+        )
+    ) || matches!(
+        attempt.error_code,
+        Some("GW_PROVIDER_OAUTH_THRESHOLD" | "GW_PROVIDER_OAUTH_QUOTA_UNVERIFIED")
     )
 }
 

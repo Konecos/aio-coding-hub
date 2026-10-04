@@ -3,6 +3,7 @@ import {
   type CliKey,
   type OAuthLimitsResult,
 } from "../../services/providers/providers";
+import type { OAuthQuotaState } from "../../generated/bindings";
 
 export type HomeOAuthQuotaRowState = "idle" | "loading" | "success" | "error";
 
@@ -13,6 +14,7 @@ export type HomeOAuthQuotaRow = {
   enabled: boolean;
   state: HomeOAuthQuotaRowState;
   limits: OAuthLimitsResult | null;
+  quotaState?: OAuthQuotaState | null;
   error: string | null;
   resetting?: boolean;
   resetError?: string | null;

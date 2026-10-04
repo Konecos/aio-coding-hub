@@ -127,6 +127,8 @@ impl Fixture {
                 priority: Some(priority),
                 claude_models: None,
                 model_policy: None,
+                oauth_short_window_stop_percent: None,
+                oauth_long_window_stop_percent: None,
                 limit_5h_usd: None,
                 limit_daily_usd: None,
                 daily_reset_mode: None,
@@ -601,6 +603,53 @@ async fn ws_without_recovery_metadata_keeps_same_connection_context() {
         "both generations use one upstream connection"
     );
     socket.close(None).await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn oauth_threshold_is_checked_again_for_the_next_websocket_generation() {
+    for (remaining, code, status) in [
+        (Some(8.0), "GW_PROVIDER_OAUTH_THRESHOLD", 429),
+        (None, "GW_PROVIDER_OAUTH_QUOTA_UNVERIFIED", 503),
+    ] {
+        let fixture = Fixture::new(true).await;
+        let (_stub, upstream) = Stub::start("A", Behavior::KeepAlive).await;
+        let id = fixture.provider("A", &upstream.origin(), true);
+        let (gateway, _logs) = fixture.start().await;
+        let mut socket = connect_with_user_agent(&gateway, "quota-turns", None)
+            .await
+            .unwrap();
+        socket.send(create_message(None)).await.unwrap();
+        let first = recv_until(&mut socket, "response.completed").await;
+        assert_eq!(first["response"]["id"], "resp-A");
+        fixture.db.open_connection().unwrap().execute("UPDATE providers SET auth_mode = 'oauth', oauth_short_window_stop_percent = 10 WHERE id = ?1", rusqlite::params![id]).unwrap();
+        crate::domain::provider_oauth_limits::save_snapshot(
+            &fixture.db,
+            crate::domain::provider_oauth_limits::OAuthLimitSnapshotInput {
+                provider_id: id,
+                short_remaining_percent: remaining,
+                long_remaining_percent: None,
+                limit_short_label: Some("5h"),
+                limit_5h_text: Some("8%"),
+                limit_weekly_text: None,
+                limit_5h_reset_at: None,
+                limit_weekly_reset_at: None,
+                reset_credit_available_count: None,
+            },
+        )
+        .unwrap();
+        socket.send(create_message(None)).await.unwrap();
+        let error = recv_until(&mut socket, "error").await;
+        assert!(error.to_string().contains(code), "{error}");
+        socket.close(None).await.unwrap();
+        let response = reqwest::Client::new()
+            .post(format!("{}/v1/responses", gateway.origin()))
+            .json(&json!({"model":"gpt-test","input":[]}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status().as_u16(), status);
+        assert_eq!(response.json::<Value>().await.unwrap()["error_code"], code);
+    }
 }
 
 #[tokio::test(flavor = "current_thread")]

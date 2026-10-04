@@ -115,6 +115,9 @@ fn skip_only_gate_attempts_finalize_as_unavailable() {
     let attempts = vec![
         skipped_attempt(Some(dc::REASON_CIRCUIT_COOLDOWN)),
         skipped_attempt(Some(dc::REASON_RATE_LIMITED)),
+        skipped_attempt(Some("threshold_reached")),
+        skipped_attempt(Some("quota_unverified")),
+        skipped_attempt(Some("quota_exhausted")),
     ];
 
     assert!(should_finalize_as_all_providers_unavailable(&attempts));

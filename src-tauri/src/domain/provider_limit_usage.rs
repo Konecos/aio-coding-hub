@@ -534,6 +534,8 @@ mod tests {
                 priority: None,
                 claude_models: None,
                 model_policy: None,
+                oauth_short_window_stop_percent: None,
+                oauth_long_window_stop_percent: None,
                 limit_5h_usd: Some(10.0),
                 limit_daily_usd: Some(10.0),
                 daily_reset_mode: Some(DailyResetMode::Rolling),

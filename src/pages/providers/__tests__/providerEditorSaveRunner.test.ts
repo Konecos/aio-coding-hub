@@ -19,6 +19,8 @@ function makeSavedProvider(partial: Partial<ProviderSummary> = {}): ProviderSumm
     enabled: partial.enabled ?? true,
     priority: partial.priority ?? 0,
     cost_multiplier: partial.cost_multiplier ?? 1,
+    oauth_short_window_stop_percent: partial.oauth_short_window_stop_percent ?? null,
+    oauth_long_window_stop_percent: partial.oauth_long_window_stop_percent ?? null,
     limit_5h_usd: partial.limit_5h_usd ?? null,
     limit_daily_usd: partial.limit_daily_usd ?? null,
     daily_reset_mode: partial.daily_reset_mode ?? "fixed",

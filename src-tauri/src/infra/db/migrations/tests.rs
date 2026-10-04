@@ -609,6 +609,26 @@ PRAGMA user_version = 32;
         )
         .expect("read migrated snapshot");
     assert_eq!(row, ("25%".to_string(), None));
+    for column in ["short_remaining_percent", "long_remaining_percent"] {
+        assert!(test_has_column(
+            &conn,
+            "provider_oauth_limit_snapshots",
+            column
+        ));
+        let value: Option<f64> = conn
+            .query_row(
+                &format!(
+                    "SELECT {column} FROM provider_oauth_limit_snapshots WHERE provider_id = 1"
+                ),
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            value, None,
+            "old display text must not be used as a precise percentage"
+        );
+    }
 
     apply_migrations(&mut conn).expect("apply migrations twice");
 }

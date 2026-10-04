@@ -83,6 +83,8 @@ function makeProvider(
     enabled: partial.enabled ?? true,
     priority: partial.priority ?? 0,
     cost_multiplier: partial.cost_multiplier ?? 1,
+    oauth_short_window_stop_percent: partial.oauth_short_window_stop_percent ?? null,
+    oauth_long_window_stop_percent: partial.oauth_long_window_stop_percent ?? null,
     limit_5h_usd: partial.limit_5h_usd ?? null,
     limit_daily_usd: partial.limit_daily_usd ?? null,
     daily_reset_mode: partial.daily_reset_mode ?? "fixed",
@@ -337,6 +339,8 @@ describe("query/providers", () => {
     setTauriRuntime();
 
     const limits = {
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "100 requests",
       limit_weekly_text: null,
@@ -374,6 +378,8 @@ describe("query/providers", () => {
     setTauriRuntime();
 
     const availableLimits = {
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "12%",
       limit_weekly_text: null,
@@ -394,6 +400,8 @@ describe("query/providers", () => {
 
     vi.mocked(gatewayCircuitResetProvider).mockClear();
     vi.mocked(providerOAuthFetchLimits).mockResolvedValueOnce({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "0%",
       limit_weekly_text: null,
@@ -413,6 +421,8 @@ describe("query/providers", () => {
     setTauriRuntime();
 
     const limits = {
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "24%",
       limit_weekly_text: null,
@@ -437,6 +447,8 @@ describe("query/providers", () => {
     setTauriRuntime();
 
     const oldTargetLimits = {
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "0%",
       limit_weekly_text: "10%",
@@ -445,6 +457,8 @@ describe("query/providers", () => {
       reset_credit_available_count: 1,
     };
     const otherLimits = {
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "80%",
       limit_weekly_text: "90%",
@@ -453,6 +467,8 @@ describe("query/providers", () => {
       reset_credit_available_count: 5,
     };
     const refreshedLimits = {
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "100%",
       limit_weekly_text: "100%",
@@ -488,6 +504,8 @@ describe("query/providers", () => {
     vi.mocked(gatewayCircuitResetProvider).mockClear();
 
     const oldLimits = {
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "0%",
       limit_weekly_text: "10%",

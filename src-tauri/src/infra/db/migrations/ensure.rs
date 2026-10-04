@@ -404,6 +404,17 @@ fn ensure_provider_limits(conn: &mut Connection) -> Result<(), String> {
 
     let mut ddl: Vec<&'static str> = Vec::new();
 
+    if !existing.contains("oauth_quota_generation") {
+        ddl.push(
+            "ALTER TABLE providers ADD COLUMN oauth_quota_generation INTEGER NOT NULL DEFAULT 0;",
+        );
+    }
+    if !existing.contains("oauth_short_window_stop_percent") {
+        ddl.push("ALTER TABLE providers ADD COLUMN oauth_short_window_stop_percent INTEGER CHECK (oauth_short_window_stop_percent BETWEEN 0 AND 99);");
+    }
+    if !existing.contains("oauth_long_window_stop_percent") {
+        ddl.push("ALTER TABLE providers ADD COLUMN oauth_long_window_stop_percent INTEGER CHECK (oauth_long_window_stop_percent BETWEEN 0 AND 99);");
+    }
     if !existing.contains("limit_5h_usd") {
         ddl.push("ALTER TABLE providers ADD COLUMN limit_5h_usd REAL;");
     }
@@ -597,6 +608,16 @@ CREATE INDEX IF NOT EXISTS idx_provider_oauth_limit_snapshots_checked_at
         .map_err(|e| format!("failed to add provider OAuth reset credit count column: {e}"))?;
     }
 
+    for column in ["short_remaining_percent", "long_remaining_percent"] {
+        if !column_exists(conn, "provider_oauth_limit_snapshots", column)? {
+            conn.execute_batch(&format!(
+                "ALTER TABLE provider_oauth_limit_snapshots ADD COLUMN {column} REAL;"
+            ))
+            .map_err(|e| format!("failed to add OAuth percentage: {e}"))?;
+        }
+    }
+    conn.execute_batch("CREATE TABLE IF NOT EXISTS provider_oauth_quota_refresh (provider_id INTEGER PRIMARY KEY REFERENCES providers(id) ON DELETE CASCADE, last_attempt_at INTEGER, next_attempt_at INTEGER NOT NULL DEFAULT 0, failures INTEGER NOT NULL DEFAULT 0, last_error TEXT);")
+        .map_err(|e| format!("failed to ensure OAuth refresh state: {e}"))?;
     Ok(())
 }
 

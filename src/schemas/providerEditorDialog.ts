@@ -4,6 +4,22 @@ import { z } from "zod";
 
 const MAX_LIMIT_USD = 1_000_000_000;
 
+function parseOAuthStopPercent() {
+  return z
+    .string()
+    .optional()
+    .default("")
+    .transform((raw, ctx) => {
+      if (!raw.trim()) return null;
+      const value = Number(raw);
+      if (!Number.isInteger(value) || value < 0 || value > 99) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "OAuth 停止阈值必须是 0–99 的整数" });
+        return z.NEVER;
+      }
+      return value;
+    });
+}
+
 function parseCostMultiplier() {
   return z.string().transform((raw, ctx) => {
     const value = Number(raw);
@@ -98,6 +114,8 @@ export function createProviderEditorDialogSchema(options: {
       api_key: z.string(),
       auth_mode: z.enum(["api_key", "oauth"]),
       cost_multiplier: parseCostMultiplier(),
+      oauth_short_window_stop_percent: parseOAuthStopPercent(),
+      oauth_long_window_stop_percent: parseOAuthStopPercent(),
       limit_5h_usd: parseLimitUsd("5 小时消费上限"),
       limit_daily_usd: parseLimitUsd("每日消费上限"),
       limit_weekly_usd: parseLimitUsd("周消费上限"),

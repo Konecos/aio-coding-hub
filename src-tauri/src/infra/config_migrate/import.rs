@@ -72,6 +72,8 @@ pub(super) fn import_into_transaction(
             enabled,
             priority,
             cost_multiplier,
+            oauth_short_window_stop_percent,
+            oauth_long_window_stop_percent,
             limit_5h_usd,
             limit_daily_usd,
             limit_weekly_usd,
@@ -216,6 +218,18 @@ INSERT INTO providers(
                 |row| row.get(0),
             )
             .map_err(|e| db_err!("failed to read inserted provider cli_key: {e}"))?;
+        if [
+            oauth_short_window_stop_percent,
+            oauth_long_window_stop_percent,
+        ]
+        .into_iter()
+        .flatten()
+        .any(|v| !(0..=99).contains(&v))
+        {
+            return Err("SEC_INVALID_INPUT: OAuth stop percent must be within [0, 99]".into());
+        }
+        tx.execute("UPDATE providers SET oauth_short_window_stop_percent = ?2, oauth_long_window_stop_percent = ?3 WHERE id = ?1", params![provider_id, oauth_short_window_stop_percent, oauth_long_window_stop_percent])
+            .map_err(|e| db_err!("failed to import OAuth thresholds: {e}"))?;
         let inserted_name: String = tx
             .query_row(
                 "SELECT name FROM providers WHERE id = ?1",

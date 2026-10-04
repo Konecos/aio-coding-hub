@@ -896,6 +896,8 @@ describe("pages/providers/ProvidersView", () => {
         base_url_mode: "order",
         cost_multiplier: 1,
         claude_models: { main_model: "claude-3" },
+        oauth_short_window_stop_percent: null,
+        oauth_long_window_stop_percent: null,
         limit_5h_usd: 5,
         limit_daily_usd: 10,
         daily_reset_mode: "fixed",

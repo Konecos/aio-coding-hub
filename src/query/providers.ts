@@ -102,6 +102,8 @@ export function writeProviderOAuthStatusCache(
 }
 
 const EMPTY_OAUTH_LIMITS_RESULT: OAuthLimitsResult = {
+  short_remaining_percent: null,
+  long_remaining_percent: null,
   limit_short_label: null,
   limit_5h_text: null,
   limit_weekly_text: null,
@@ -138,6 +140,7 @@ export async function refreshProviderOAuthLimits(
     await providerOAuthFetchLimits(normalizedProviderId)
   );
   queryClient.setQueryData(oauthLimitsKeys.detail(normalizedProviderId), next);
+  void queryClient.invalidateQueries({ queryKey: ["oauth-quota-states"] });
   try {
     if (options?.resetCircuitAfterRefresh) {
       try {
@@ -162,6 +165,7 @@ export async function resetProviderOAuthCodexQuota(
 ): Promise<ProviderOAuthResetCodexQuotaResult> {
   const normalizedProviderId = validateProviderId(providerId);
   const result = await providerOAuthResetCodexQuota(normalizedProviderId);
+  void queryClient.invalidateQueries({ queryKey: ["oauth-quota-states"] });
   const refreshedLimits = result.refreshed_limits;
 
   if (refreshedLimits) {

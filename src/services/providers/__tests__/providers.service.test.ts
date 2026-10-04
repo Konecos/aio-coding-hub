@@ -79,6 +79,8 @@ function createProviderSummary(overrides: Partial<ProviderSummary> = {}): Provid
     enabled: true,
     priority: 0,
     cost_multiplier: 1,
+    oauth_short_window_stop_percent: null,
+    oauth_long_window_stop_percent: null,
     limit_5h_usd: null,
     limit_daily_usd: null,
     daily_reset_mode: "fixed",
@@ -833,6 +835,8 @@ describe("services/providers/providers", () => {
     vi.mocked(commands.providerOauthFetchLimits).mockResolvedValueOnce({
       status: "ok",
       data: {
+        short_remaining_percent: null,
+        long_remaining_percent: null,
         limit_short_label: "1h",
         limit_5h_text: "100 requests",
         limit_weekly_text: "1000 requests",
@@ -844,6 +848,8 @@ describe("services/providers/providers", () => {
 
     const result = await providerOAuthFetchLimits(50);
     expect(result).toEqual({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "1h",
       limit_5h_text: "100 requests",
       limit_weekly_text: "1000 requests",
@@ -862,6 +868,8 @@ describe("services/providers/providers", () => {
         code: "ok",
         windows_reset: 2,
         refreshed_limits: {
+          short_remaining_percent: null,
+          long_remaining_percent: null,
           limit_short_label: "5h",
           limit_5h_text: "0%",
           limit_weekly_text: "50%",
@@ -880,6 +888,8 @@ describe("services/providers/providers", () => {
       code: "ok",
       windows_reset: 2,
       refreshed_limits: {
+        short_remaining_percent: null,
+        long_remaining_percent: null,
         limit_short_label: "5h",
         limit_5h_text: "0%",
         limit_weekly_text: "50%",

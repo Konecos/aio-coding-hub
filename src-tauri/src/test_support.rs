@@ -305,6 +305,8 @@ pub fn provider_upsert_json<R: tauri::Runtime>(
             priority,
             claude_models,
             model_policy: None,
+            oauth_short_window_stop_percent: None,
+            oauth_long_window_stop_percent: None,
             limit_5h_usd,
             limit_daily_usd,
             daily_reset_mode: parse_daily_reset_mode(daily_reset_mode)?,

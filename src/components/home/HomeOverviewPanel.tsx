@@ -203,6 +203,8 @@ const PREVIEW_OAUTH_QUOTA_ROWS: HomeOAuthQuotaRow[] = [
     enabled: true,
     state: "success",
     limits: {
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "29%",
       limit_weekly_text: "83%",
@@ -219,6 +221,8 @@ const PREVIEW_OAUTH_QUOTA_ROWS: HomeOAuthQuotaRow[] = [
     enabled: true,
     state: "success",
     limits: {
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: null,
       limit_weekly_text: null,

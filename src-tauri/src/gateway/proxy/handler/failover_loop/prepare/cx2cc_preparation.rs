@@ -77,6 +77,29 @@ pub(super) async fn prepare<R: tauri::Runtime>(args: Cx2ccPreparationInput<'_, R
             }
         };
 
+        let mut skipped = 0;
+        let mut reason = None;
+        if !super::provider_limits::gate_provider(super::provider_limits::ProviderLimitsInput {
+            ctx: args.ctx,
+            provider: &source,
+            earliest_available_unix: &mut None,
+            skipped_limits: &mut skipped,
+            denial_reason: &mut reason,
+        }) {
+            return Cx2ccOutcome::Skipped(SkipReason {
+                error_category: "rate_limit",
+                error_code: match reason {
+                    Some("threshold_reached") => GatewayErrorCode::ProviderOAuthThreshold,
+                    Some("quota_unverified") => GatewayErrorCode::ProviderOAuthQuotaUnverified,
+                    _ => GatewayErrorCode::ProviderRateLimited,
+                }
+                .as_str(),
+                reason: format!(
+                    "cx2cc source provider skipped by {}",
+                    reason.unwrap_or("rate limit")
+                ),
+            });
+        }
         let source_cred = match resolve_effective_credential(
             &args.input.state,
             &source_cli_key,

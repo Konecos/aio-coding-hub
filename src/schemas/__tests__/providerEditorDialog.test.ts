@@ -2,8 +2,25 @@
 
 import { describe, expect, it } from "vitest";
 import { createProviderEditorDialogSchema } from "../providerEditorDialog";
+import { DEFAULT_FORM_VALUES } from "../../pages/providers/providerEditorUtils";
 
 describe("schemas/providerEditorDialog", () => {
+  it("validates OAuth integer thresholds and keeps zero distinct from disabled", () => {
+    const schema = createProviderEditorDialogSchema({ mode: "edit" });
+    const base = { ...DEFAULT_FORM_VALUES, name: "quota", auth_mode: "oauth" };
+    expect(
+      schema.parse({ ...base, oauth_short_window_stop_percent: "0" })
+        .oauth_short_window_stop_percent
+    ).toBe(0);
+    expect(
+      schema.parse({ ...base, oauth_short_window_stop_percent: "" }).oauth_short_window_stop_percent
+    ).toBeNull();
+    for (const value of ["-1", "100", "10.5", "NaN", "Infinity"]) {
+      expect(schema.safeParse({ ...base, oauth_short_window_stop_percent: value }).success).toBe(
+        false
+      );
+    }
+  });
   it("requires api_key only in create mode", () => {
     const createSchema = createProviderEditorDialogSchema({ mode: "create" });
     const editSchema = createProviderEditorDialogSchema({ mode: "edit" });

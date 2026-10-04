@@ -450,22 +450,23 @@ async fn gemini_decode_response(
     context: &str,
 ) -> Result<serde_json::Value, String> {
     let status = response.status();
+    let retry = super::super::provider_trait::quota_retry_after_hint(&response);
     let text = read_text_with_limit(response, GEMINI_JSON_RESPONSE_BODY_LIMIT, context)
         .await
         .map_err(|e| {
             if status.is_success() {
                 e
             } else {
-                format!("{context} status: {status}; {e}")
+                format!("{context} status: {status}{retry}; {e}")
             }
         })?;
 
     if !status.is_success() {
         let body = gemini_body_preview(&text);
         if body.is_empty() {
-            return Err(format!("{context} status: {status}"));
+            return Err(format!("{context} status: {status}{retry}"));
         }
-        return Err(format!("{context} status: {status}; body: {body}"));
+        return Err(format!("{context} status: {status}{retry}; body: {body}"));
     }
 
     serde_json::from_str(&text).map_err(|e| {
@@ -509,6 +510,53 @@ fn gemini_parse_quota_texts(body: &serde_json::Value) -> (Option<String>, Option
     };
 
     (limit_5h_text, limit_weekly_text)
+}
+
+type GeminiQuotaWindows = (Option<f64>, Option<f64>, (Option<i64>, Option<i64>));
+
+/// Keep each percentage paired with its own reset window; counts alone are not percentages.
+pub(crate) fn gemini_quota_windows(body: &serde_json::Value) -> GeminiQuotaWindows {
+    let Some(buckets) = body.get("buckets").and_then(serde_json::Value::as_array) else {
+        return (None, None, (None, None));
+    };
+    let mut groups: BTreeMap<Option<i64>, Vec<Option<f64>>> = BTreeMap::new();
+    for bucket in buckets.iter().filter(|bucket| bucket.is_object()) {
+        let reset = bucket
+            .get("resetTime")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|text| chrono::DateTime::parse_from_rfc3339(text).ok())
+            .map(|date| date.timestamp());
+        let number = |key: &str| {
+            bucket
+                .get(key)
+                .and_then(|v| v.as_f64().or_else(|| v.as_str()?.parse::<f64>().ok()))
+        };
+        let fraction = number("remainingFraction").map(|v| if v > 1.0 { v / 100.0 } else { v });
+        let percent = fraction.map(|v| v * 100.0).or_else(|| {
+            let total = number("totalAmount")?;
+            (total.is_finite() && total > 0.0)
+                .then(|| number("remainingAmount").map(|v| v / total * 100.0))
+                .flatten()
+        });
+        groups.entry(reset).or_default().push(
+            crate::domain::provider_oauth_limits::normalize_percent(percent),
+        );
+    }
+    let minimum = |values: &[Option<f64>]| {
+        values
+            .iter()
+            .copied()
+            .collect::<Option<Vec<_>>>()
+            .and_then(|values| values.into_iter().reduce(f64::min))
+    };
+    let Some((first_reset, first)) = groups.first_key_value() else {
+        return (None, None, (None, None));
+    };
+    if groups.len() == 1 {
+        return (minimum(first), None, (*first_reset, None));
+    }
+    let (last_reset, last) = groups.last_key_value().expect("nonempty groups");
+    (minimum(first), minimum(last), (*first_reset, *last_reset))
 }
 
 fn gemini_bucket_group_text(group: &[&serde_json::Value]) -> Option<String> {
@@ -576,6 +624,22 @@ fn json_string_field(value: Option<&serde_json::Value>) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn numeric_quota_is_available_even_when_counts_are_displayed() {
+        let raw = serde_json::json!({"buckets": [
+            {"remainingAmount": "11", "remainingFraction": 0.7, "resetTime": "2026-10-04T10:00:00Z"},
+            {"remainingAmount": "7", "remainingFraction": 0.4, "resetTime": "2026-10-04T10:00:00Z"},
+            {"remainingFraction": 0.2, "resetTime": "2026-10-05T10:00:00Z"}
+        ]});
+        let (short, long, resets) = gemini_quota_windows(&raw);
+        assert_eq!(short, Some(40.0));
+        assert_eq!(long, Some(20.0));
+        assert!(resets.0.unwrap() < resets.1.unwrap());
+        assert_eq!(gemini_parse_quota_texts(&raw).0.as_deref(), Some("7"));
+        let raw = serde_json::json!({"buckets": [{"remainingAmount": "7"}]});
+        assert_eq!(gemini_quota_windows(&raw), (None, None, (None, None)));
+    }
 
     #[test]
     fn gemini_parse_quota_texts_picks_shortest_and_longest_reset_windows() {

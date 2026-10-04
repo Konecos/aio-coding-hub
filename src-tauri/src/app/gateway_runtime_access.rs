@@ -3,6 +3,14 @@
 use crate::shared::error::AppResult;
 use crate::{db, gateway};
 
+pub(crate) fn app_gateway_clear_recent_errors<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    super::gateway_state::try_with_app_running_gateway(app, |running| {
+        if let Some(runtime) = running {
+            runtime.clear_recent_errors();
+        }
+    });
+}
+
 pub(crate) fn app_gateway_status<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> gateway::GatewayStatus {

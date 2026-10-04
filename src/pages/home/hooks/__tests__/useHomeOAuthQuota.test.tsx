@@ -47,6 +47,8 @@ function makeProvider(
     enabled: partial.enabled ?? true,
     priority: partial.priority ?? 0,
     cost_multiplier: partial.cost_multiplier ?? 1,
+    oauth_short_window_stop_percent: partial.oauth_short_window_stop_percent ?? null,
+    oauth_long_window_stop_percent: partial.oauth_long_window_stop_percent ?? null,
     limit_5h_usd: partial.limit_5h_usd ?? null,
     limit_daily_usd: partial.limit_daily_usd ?? null,
     daily_reset_mode: partial.daily_reset_mode ?? "fixed",
@@ -163,6 +165,8 @@ describe("pages/home/hooks/useHomeOAuthQuota", () => {
   it("reuses existing OAuth limit cache without issuing a new request", async () => {
     const client = createTestQueryClient();
     client.setQueryData(oauthLimitsKeys.detail(11), {
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "61%",
       limit_weekly_text: "92%",
@@ -186,6 +190,8 @@ describe("pages/home/hooks/useHomeOAuthQuota", () => {
     const client = createTestQueryClient();
     const wrapper = createQueryWrapper(client);
     vi.mocked(providerOAuthFetchLimits).mockResolvedValue({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "44%",
       limit_weekly_text: "88%",
@@ -206,9 +212,11 @@ describe("pages/home/hooks/useHomeOAuthQuota", () => {
     });
 
     expect(providerOAuthFetchLimits).toHaveBeenCalledWith(11);
-    expect(gatewayCircuitResetProvider).toHaveBeenCalledWith(11);
+    expect(gatewayCircuitResetProvider).not.toHaveBeenCalled();
     expect(result.current.oauthQuotaHasRefreshed).toBe(true);
     expect(client.getQueryData(oauthLimitsKeys.detail(11))).toEqual({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "44%",
       limit_weekly_text: "88%",
@@ -246,6 +254,8 @@ describe("pages/home/hooks/useHomeOAuthQuota", () => {
     const client = createTestQueryClient();
     const wrapper = createQueryWrapper(client);
     vi.mocked(providerOAuthFetchLimits).mockImplementation(async (providerId) => ({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: providerId === 11 ? "5h" : "短窗",
       limit_5h_text: providerId === 11 ? "44%" : "12%",
       limit_weekly_text: providerId === 11 ? "88%" : "63%",
@@ -267,9 +277,11 @@ describe("pages/home/hooks/useHomeOAuthQuota", () => {
 
     expect(providerOAuthFetchLimits).toHaveBeenCalledTimes(1);
     expect(providerOAuthFetchLimits).toHaveBeenCalledWith(22);
-    expect(gatewayCircuitResetProvider).toHaveBeenCalledWith(22);
+    expect(gatewayCircuitResetProvider).not.toHaveBeenCalled();
     expect(client.getQueryData(oauthLimitsKeys.detail(11))).toBeUndefined();
     expect(client.getQueryData(oauthLimitsKeys.detail(22))).toEqual({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "短窗",
       limit_5h_text: "12%",
       limit_weekly_text: "63%",
@@ -304,6 +316,8 @@ describe("pages/home/hooks/useHomeOAuthQuota", () => {
     const client = createTestQueryClient();
     const wrapper = createQueryWrapper(client);
     vi.mocked(providerOAuthFetchLimits).mockResolvedValue({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "44%",
       limit_weekly_text: "88%",
@@ -326,7 +340,7 @@ describe("pages/home/hooks/useHomeOAuthQuota", () => {
     expect(providerOAuthFetchLimits).toHaveBeenCalledTimes(1);
     expect(providerOAuthFetchLimits).toHaveBeenCalledWith(11);
     expect(providerOAuthFetchLimits).not.toHaveBeenCalledWith(12);
-    expect(gatewayCircuitResetProvider).toHaveBeenCalledWith(11);
+    expect(gatewayCircuitResetProvider).not.toHaveBeenCalled();
     expect(gatewayCircuitResetProvider).not.toHaveBeenCalledWith(12);
     expect(result.current.oauthQuotaRows.find((row) => row.providerId === 12)?.state).toBe("idle");
   });
@@ -354,6 +368,8 @@ describe("pages/home/hooks/useHomeOAuthQuota", () => {
 
     const client = createTestQueryClient();
     const oldA = {
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "0%",
       limit_weekly_text: "10%",
@@ -362,6 +378,8 @@ describe("pages/home/hooks/useHomeOAuthQuota", () => {
       reset_credit_available_count: 1,
     };
     const oldB = {
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "40%",
       limit_weekly_text: "60%",
@@ -370,6 +388,8 @@ describe("pages/home/hooks/useHomeOAuthQuota", () => {
       reset_credit_available_count: 5,
     };
     const refreshedA = {
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "100%",
       limit_weekly_text: "100%",
@@ -400,7 +420,7 @@ describe("pages/home/hooks/useHomeOAuthQuota", () => {
     });
 
     expect(providerOAuthResetCodexQuota).toHaveBeenCalledWith(11);
-    expect(gatewayCircuitResetProvider).toHaveBeenCalledWith(11);
+    expect(gatewayCircuitResetProvider).not.toHaveBeenCalled();
     expect(client.getQueryData(oauthLimitsKeys.detail(11))).toEqual(refreshedA);
     expect(client.getQueryData(oauthLimitsKeys.detail(12))).toEqual(oldB);
     expect(result.current.oauthQuotaRows.find((row) => row.providerId === 11)?.limits).toEqual(

@@ -912,6 +912,7 @@ export function useProviderEditorForm(props: ProviderEditorDialogProps) {
   );
 
   return {
+    editingProviderId,
     mode,
     cliKey,
     open,

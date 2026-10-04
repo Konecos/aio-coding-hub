@@ -165,7 +165,11 @@ impl OAuthProvider for CodexOAuthProvider {
                 .map_err(|e| format!("codex limits fetch failed: {e}"))?;
 
             if !resp.status().is_success() {
-                return Err(format!("codex limits fetch status: {}", resp.status()));
+                return Err(format!(
+                    "codex limits fetch status: {}{}",
+                    resp.status(),
+                    super::super::provider_trait::quota_retry_after_hint(&resp)
+                ));
             }
 
             let body = read_text_with_limit(resp, CODEX_LIMITS_RESPONSE_BODY_LIMIT, "codex limits")

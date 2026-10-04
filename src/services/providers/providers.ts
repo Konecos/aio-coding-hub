@@ -19,6 +19,7 @@ import {
   type ProviderOAuthDeviceCodePollResult as GeneratedProviderOAuthDeviceCodePollResult,
   type ProviderOAuthDeviceCodeStartResult as GeneratedProviderOAuthDeviceCodeStartResult,
   type ProviderOAuthDisconnectResult,
+  type OAuthQuotaState,
   type ProviderOAuthLimitsResult,
   type ProviderOAuthRefreshResult,
   type ProviderOAuthResetCodexQuotaResult,
@@ -120,6 +121,8 @@ type ProviderUpsertFieldMap = {
   priority: "priority";
   claudeModels: "claudeModels";
   modelPolicy: "modelPolicy";
+  oauthShortWindowStopPercent: "oauthShortWindowStopPercent";
+  oauthLongWindowStopPercent: "oauthLongWindowStopPercent";
   limit5hUsd: "limit5hUsd";
   limitDailyUsd: "limitDailyUsd";
   dailyResetMode: "dailyResetMode";
@@ -213,6 +216,8 @@ function toProviderUpsertPayload(input: ProviderUpsertInput): ProviderUpsertTran
     priority: input.priority ?? null,
     claudeModels: input.claudeModels ?? null,
     modelPolicy: input.modelPolicy ?? null,
+    oauthShortWindowStopPercent: input.oauthShortWindowStopPercent ?? null,
+    oauthLongWindowStopPercent: input.oauthLongWindowStopPercent ?? null,
     limit5hUsd: input.limit5hUsd ?? null,
     limitDailyUsd: input.limitDailyUsd ?? null,
     dailyResetMode: input.dailyResetMode ?? null,
@@ -594,9 +599,11 @@ export function isExhaustedOAuthQuotaText(value: string | null | undefined): boo
 }
 
 export function hasInsufficientOAuthQuota(limits: OAuthLimitsResult | null): boolean {
+  const exhausted = (percent: number | null | undefined, text: string | null | undefined) =>
+    percent != null && Number.isFinite(percent) ? percent === 0 : isExhaustedOAuthQuotaText(text);
   return (
-    isExhaustedOAuthQuotaText(limits?.limit_5h_text) ||
-    isExhaustedOAuthQuotaText(limits?.limit_weekly_text)
+    exhausted(limits?.short_remaining_percent, limits?.limit_5h_text) ||
+    exhausted(limits?.long_remaining_percent, limits?.limit_weekly_text)
   );
 }
 
@@ -689,4 +696,15 @@ export function getProviderTypeInfo(
       ? "oauth"
       : "api_key";
   return { isCx2cc, isCx2ccGateway, isOAuth, effectiveAuthMode };
+}
+
+export async function providerOAuthQuotaStates(): Promise<OAuthQuotaState[]> {
+  return (
+    (await invokeGeneratedIpc<OAuthQuotaState[]>({
+      title: "读取 OAuth 额度保护状态失败",
+      cmd: "provider_oauth_quota_states",
+      args: {},
+      invoke: () => commands.providerOauthQuotaStates(),
+    })) ?? []
+  );
 }

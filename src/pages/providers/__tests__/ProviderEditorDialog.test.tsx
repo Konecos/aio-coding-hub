@@ -86,6 +86,8 @@ function makeProvider(partial: Partial<ProviderSummary> = {}): ProviderSummary {
     enabled: true,
     priority: 0,
     cost_multiplier: 1.0,
+    oauth_short_window_stop_percent: null,
+    oauth_long_window_stop_percent: null,
     limit_5h_usd: null,
     limit_daily_usd: null,
     daily_reset_mode: "fixed",
@@ -127,6 +129,8 @@ function makeInitialValues(
     claude_models: { main_model: "claude-copy" },
     enabled: true,
     cost_multiplier: 1.5,
+    oauth_short_window_stop_percent: null,
+    oauth_long_window_stop_percent: null,
     limit_5h_usd: 5,
     limit_daily_usd: 10,
     daily_reset_mode: "fixed",
@@ -205,6 +209,43 @@ function renderDialog(ui: ReactElement) {
 const render = renderDialog;
 
 describe("pages/providers/ProviderEditorDialog", () => {
+  it("loads saved OAuth thresholds and keeps zero enabled", async () => {
+    const provider = makeProvider({
+      cli_key: "codex",
+      auth_mode: "oauth",
+      oauth_short_window_stop_percent: 10,
+      oauth_long_window_stop_percent: 0,
+    });
+    vi.mocked(providerOAuthStatus).mockResolvedValue(makeOAuthStatus({ connected: true }));
+    vi.mocked(providerUpsert).mockResolvedValue({
+      ...provider,
+      oauth_short_window_stop_percent: null,
+    });
+    render(
+      <ProviderEditorDialog
+        mode="edit"
+        provider={provider}
+        open={true}
+        onSaved={vi.fn()}
+        onOpenChange={vi.fn()}
+      />
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("spinbutton", { name: "5 小时停止阈值" })).toHaveValue(10)
+    );
+    expect(screen.getByRole("spinbutton", { name: "每周停止阈值" })).toHaveValue(0);
+    expect(screen.getByRole("checkbox", { name: /每周剩余/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("checkbox", { name: /5 小时剩余/ }));
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(providerUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          oauthShortWindowStopPercent: null,
+          oauthLongWindowStopPercent: 0,
+        })
+      )
+    );
+  });
   beforeEach(() => {
     vi.mocked(providerUpsert).mockReset();
     vi.mocked(providerDelete).mockReset();
@@ -1863,6 +1904,8 @@ describe("pages/providers/ProviderEditorDialog", () => {
       })
     );
     vi.mocked(providerOAuthFetchLimits).mockResolvedValueOnce({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: null,
       limit_5h_text: "100 req",
       limit_weekly_text: "1000 req",
@@ -1942,6 +1985,8 @@ describe("pages/providers/ProviderEditorDialog", () => {
     );
     vi.mocked(providerOAuthStatus).mockRejectedValueOnce(new Error("status sync failed"));
     vi.mocked(providerOAuthFetchLimits).mockResolvedValueOnce({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: null,
       limit_5h_text: "100 req",
       limit_weekly_text: "1000 req",
@@ -2179,6 +2224,8 @@ describe("pages/providers/ProviderEditorDialog", () => {
       })
     );
     vi.mocked(providerOAuthFetchLimits).mockResolvedValueOnce({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: null,
       limit_5h_text: "100 req",
       limit_weekly_text: "1000 req",
@@ -2462,6 +2509,8 @@ describe("pages/providers/ProviderEditorDialog", () => {
       })
     );
     vi.mocked(providerOAuthFetchLimits).mockResolvedValueOnce({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "1h",
       limit_5h_text: "60",
       limit_weekly_text: "300",
@@ -3362,6 +3411,8 @@ describe("pages/providers/ProviderEditorDialog", () => {
       claude_models: { main_model: "m", reasoning_model: "r" },
       tags: ["tag1", "tag2"],
       note: "test note",
+      oauth_short_window_stop_percent: null,
+      oauth_long_window_stop_percent: null,
       limit_5h_usd: 10,
       limit_daily_usd: 100,
       limit_weekly_usd: 500,

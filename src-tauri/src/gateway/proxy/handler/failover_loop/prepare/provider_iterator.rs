@@ -292,6 +292,15 @@ pub(super) async fn prepare_provider<R: tauri::Runtime>(
                 codex_chatgpt_account_id = result.codex_chatgpt_account_id;
             }
             cx2cc_preparation::Cx2ccOutcome::Skipped(reason) => {
+                if [
+                    GatewayErrorCode::ProviderOAuthThreshold.as_str(),
+                    GatewayErrorCode::ProviderOAuthQuotaUnverified.as_str(),
+                    GatewayErrorCode::ProviderRateLimited.as_str(),
+                ]
+                .contains(&reason.error_code)
+                {
+                    counters.skipped_limits = counters.skipped_limits.saturating_add(1);
+                }
                 provider_checks::skip_with_reason(
                     attempts,
                     provider_id,

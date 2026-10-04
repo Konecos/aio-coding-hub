@@ -169,7 +169,11 @@ impl OAuthProvider for ClaudeOAuthProvider {
                 .map_err(|e| format!("claude limits fetch failed: {e}"))?;
 
             if !resp.status().is_success() {
-                return Err(format!("claude limits fetch status: {}", resp.status()));
+                return Err(format!(
+                    "claude limits fetch status: {}{}",
+                    resp.status(),
+                    super::super::provider_trait::quota_retry_after_hint(&resp)
+                ));
             }
 
             let body =

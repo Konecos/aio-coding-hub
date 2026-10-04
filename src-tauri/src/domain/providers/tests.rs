@@ -428,6 +428,8 @@ fn default_provider_params(name: &str) -> ProviderUpsertParams {
         priority: Some(100),
         claude_models: None,
         model_policy: None,
+        oauth_short_window_stop_percent: None,
+        oauth_long_window_stop_percent: None,
         limit_5h_usd: None,
         limit_daily_usd: None,
         daily_reset_mode: Some(DailyResetMode::Fixed),
@@ -443,6 +445,27 @@ fn default_provider_params(name: &str) -> ProviderUpsertParams {
         supports_websockets: None,
         extension_values: None,
     }
+}
+
+#[test]
+fn oauth_threshold_configuration_persists_and_validates() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = crate::db::init_for_tests(&dir.path().join("threshold-config.db")).unwrap();
+    let mut input = default_provider_params("quota protected");
+    input.auth_mode = Some(ProviderAuthMode::Oauth);
+    input.oauth_short_window_stop_percent = Some(10);
+    input.oauth_long_window_stop_percent = Some(5);
+    let saved = upsert(&db, input.clone()).unwrap();
+    assert_eq!(saved.oauth_short_window_stop_percent, Some(10));
+    assert_eq!(saved.oauth_long_window_stop_percent, Some(5));
+    input.provider_id = Some(saved.id);
+    input.oauth_short_window_stop_percent = Some(100);
+    assert!(upsert(&db, input.clone()).is_err());
+    input.oauth_short_window_stop_percent = None;
+    input.oauth_long_window_stop_percent = None;
+    let saved = upsert(&db, input).unwrap();
+    assert_eq!(saved.oauth_short_window_stop_percent, None);
+    assert_eq!(saved.oauth_long_window_stop_percent, None);
 }
 
 fn seed_plugin(db: &crate::db::Db, plugin_id: &str) {
@@ -568,6 +591,8 @@ fn provider_duplicate_copies_extension_values() {
             priority: None,
             claude_models: Some(source_summary.claude_models.clone()),
             model_policy: source_summary.model_policy.clone(),
+            oauth_short_window_stop_percent: source_summary.oauth_short_window_stop_percent,
+            oauth_long_window_stop_percent: source_summary.oauth_long_window_stop_percent,
             limit_5h_usd: source_summary.limit_5h_usd,
             limit_daily_usd: source_summary.limit_daily_usd,
             daily_reset_mode: Some(source_summary.daily_reset_mode),
@@ -923,6 +948,8 @@ fn create_oauth_provider_for_cas_test(db: &crate::db::Db, name: &str) -> i64 {
             priority: Some(100),
             claude_models: None,
             model_policy: None,
+            oauth_short_window_stop_percent: None,
+            oauth_long_window_stop_percent: None,
             limit_5h_usd: None,
             limit_daily_usd: None,
             daily_reset_mode: Some(DailyResetMode::Fixed),

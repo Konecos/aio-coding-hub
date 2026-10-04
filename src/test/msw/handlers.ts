@@ -233,6 +233,14 @@ export const handlers = [
         typeof input.costMultiplier === "number"
           ? input.costMultiplier
           : (existing?.cost_multiplier ?? 1),
+      oauth_short_window_stop_percent:
+        typeof input.oauthShortWindowStopPercent === "number"
+          ? input.oauthShortWindowStopPercent
+          : null,
+      oauth_long_window_stop_percent:
+        typeof input.oauthLongWindowStopPercent === "number"
+          ? input.oauthLongWindowStopPercent
+          : null,
       limit_5h_usd:
         typeof input.limit5hUsd === "number"
           ? input.limit5hUsd

@@ -15,6 +15,8 @@ function createProvider(overrides: Record<string, unknown> = {}) {
     enabled: true,
     priority: 1,
     cost_multiplier: 1,
+    oauth_short_window_stop_percent: null,
+    oauth_long_window_stop_percent: null,
     limit_5h_usd: 1,
     limit_daily_usd: 2,
     daily_reset_mode: "fixed",

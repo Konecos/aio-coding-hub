@@ -2,6 +2,7 @@ export const appEventNames = {
   heartbeat: "app:heartbeat",
   notice: "notice:notify",
   providerCodexCatalog: "providers:codex_catalog",
+  providerOAuthQuota: "providers:oauth_quota",
   startupStatus: "app:startup_status",
 } as const;
 

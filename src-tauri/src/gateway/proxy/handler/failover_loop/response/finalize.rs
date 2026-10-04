@@ -79,8 +79,39 @@ pub(super) async fn all_providers_unavailable<R: tauri::Runtime>(
         unavailable_fingerprint_debug,
     } = input;
 
+    let all_thresholds = !attempts.is_empty()
+        && attempts.iter().all(|attempt| {
+            attempt.error_code == Some(GatewayErrorCode::ProviderOAuthThreshold.as_str())
+        });
+    let all_unverified = !attempts.is_empty()
+        && attempts.iter().all(|attempt| {
+            attempt.error_code == Some(GatewayErrorCode::ProviderOAuthQuotaUnverified.as_str())
+        });
+    let quota_denied = attempts.iter().any(|attempt| {
+        matches!(
+            attempt.reason_code,
+            Some("threshold_reached" | "quota_unverified" | "quota_exhausted")
+        ) || matches!(
+            attempt.error_code,
+            Some("GW_PROVIDER_OAUTH_THRESHOLD" | "GW_PROVIDER_OAUTH_QUOTA_UNVERIFIED")
+        )
+    });
+    let error_code = if all_thresholds {
+        GatewayErrorCode::ProviderOAuthThreshold
+    } else if all_unverified {
+        GatewayErrorCode::ProviderOAuthQuotaUnverified
+    } else {
+        GatewayErrorCode::AllProvidersUnavailable
+    };
+    let status = if all_thresholds {
+        StatusCode::TOO_MANY_REQUESTS
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
     let now_unix = now_unix_seconds() as i64;
-    let retry_after_seconds = earliest_available_unix
+    let retry_after_seconds = (!quota_denied)
+        .then_some(earliest_available_unix)
+        .flatten()
         .and_then(|t| t.checked_sub(now_unix))
         .filter(|v| *v > 0)
         .map(|v| v as u64);
@@ -90,6 +121,10 @@ pub(super) async fn all_providers_unavailable<R: tauri::Runtime>(
     );
     let message = if verbose_provider_error {
         detailed_message
+    } else if all_thresholds {
+        "OAuth quota protection paused all eligible providers".to_string()
+    } else if all_unverified {
+        "OAuth quota is unverified for all eligible providers".to_string()
     } else {
         "No available providers".to_string()
     };
@@ -97,7 +132,7 @@ pub(super) async fn all_providers_unavailable<R: tauri::Runtime>(
     // Disk log: all providers unavailable (circuit breaker / cooldown / limits).
     tracing::error!(
         trace_id = %trace_id,
-        error_code = GatewayErrorCode::AllProvidersUnavailable.as_str(),
+        error_code = error_code.as_str(),
         cli_key = %cli_key,
         skipped_open = skipped_open,
         skipped_cooldown = skipped_cooldown,
@@ -106,9 +141,9 @@ pub(super) async fn all_providers_unavailable<R: tauri::Runtime>(
     );
 
     let resp = error_response_with_retry_after(
-        StatusCode::SERVICE_UNAVAILABLE,
+        status,
         trace_id.clone(),
-        GatewayErrorCode::AllProvidersUnavailable.as_str(),
+        error_code.as_str(),
         message.clone(),
         if verbose_provider_error {
             attempts.clone()
@@ -144,9 +179,9 @@ pub(super) async fn all_providers_unavailable<R: tauri::Runtime>(
             created_at,
         })
         .with_completion(RequestCompletion::failure(
-            StatusCode::SERVICE_UNAVAILABLE.as_u16(),
+            status.as_u16(),
             None,
-            GatewayErrorCode::AllProvidersUnavailable.as_str(),
+            error_code.as_str(),
         )),
     )
     .await;
@@ -158,8 +193,8 @@ pub(super) async fn all_providers_unavailable<R: tauri::Runtime>(
             unavailable_fingerprint_key,
             CachedGatewayError {
                 trace_id: trace_id.clone(),
-                status: StatusCode::SERVICE_UNAVAILABLE,
-                error_code: GatewayErrorCode::AllProvidersUnavailable.as_str(),
+                status,
+                error_code: error_code.as_str(),
                 message: message.clone(),
                 retry_after_seconds: Some(retry_after_seconds),
                 expires_at_unix: now_unix.saturating_add(retry_after_seconds as i64),
@@ -171,8 +206,8 @@ pub(super) async fn all_providers_unavailable<R: tauri::Runtime>(
             fingerprint_key,
             CachedGatewayError {
                 trace_id: trace_id.clone(),
-                status: StatusCode::SERVICE_UNAVAILABLE,
-                error_code: GatewayErrorCode::AllProvidersUnavailable.as_str(),
+                status,
+                error_code: error_code.as_str(),
                 message,
                 retry_after_seconds: Some(retry_after_seconds),
                 expires_at_unix: now_unix.saturating_add(retry_after_seconds as i64),

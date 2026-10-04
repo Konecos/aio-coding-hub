@@ -173,6 +173,10 @@ export function buildProviderEditorUpsertInput(
         : parsed.data.api_key.trim() || null,
     enabled: parsed.data.enabled,
     costMultiplier: effectiveCostMultiplier,
+    oauthShortWindowStopPercent:
+      ctx.authMode === "oauth" ? parsed.data.oauth_short_window_stop_percent : null,
+    oauthLongWindowStopPercent:
+      ctx.authMode === "oauth" ? parsed.data.oauth_long_window_stop_percent : null,
     limit5hUsd: parsed.data.limit_5h_usd,
     limitDailyUsd: parsed.data.limit_daily_usd,
     dailyResetMode: parsed.data.daily_reset_mode,

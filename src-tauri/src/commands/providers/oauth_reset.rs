@@ -18,7 +18,7 @@ const CODEX_USAGE_RESPONSE_BODY_LIMIT: usize = 1024 * 1024;
 const CODEX_RESET_RESPONSE_BODY_LIMIT: usize = 64 * 1024;
 
 #[derive(Debug, Clone)]
-pub(super) struct CodexQuotaEndpoints {
+pub(crate) struct CodexQuotaEndpoints {
     usage_url: String,
     reset_url: String,
 }
@@ -170,7 +170,7 @@ fn generate_redeem_request_id() -> String {
     )
 }
 
-pub(super) async fn fetch_codex_usage_limits(
+pub(crate) async fn fetch_codex_usage_limits(
     client: &reqwest::Client,
     endpoints: &CodexQuotaEndpoints,
     access_token: &str,
@@ -187,10 +187,13 @@ pub(super) async fn fetch_codex_usage_limits(
 
     if !response.status().is_success() {
         let status = response.status();
+        let retry = crate::gateway::oauth::provider_trait::quota_retry_after_hint(&response);
         let text = read_text_with_limit(response, CODEX_RESET_RESPONSE_BODY_LIMIT, "codex usage")
             .await
             .unwrap_or_default();
-        return Err(format!("codex usage fetch status: {status} - {text}"));
+        return Err(format!(
+            "codex usage fetch status: {status}{retry} - {text}"
+        ));
     }
 
     let body = read_text_with_limit(response, CODEX_USAGE_RESPONSE_BODY_LIMIT, "codex usage")
@@ -269,6 +272,13 @@ pub(crate) async fn provider_oauth_reset_codex_quota(
     require_codex_reset_confirm(provider_id, confirm)?;
 
     let db = ensure_db_ready(app.clone(), db_state.inner()).await?;
+    let _quota_guard = crate::app::oauth_quota_runtime::operation_lock(&db, provider_id)
+        .map_err(String::from)?
+        .lock_owned()
+        .await;
+    let _quota_permit = crate::app::oauth_quota_runtime::acquire_permit().await?;
+    let snapshot_generation =
+        crate::domain::provider_oauth_limits::generation(&db, provider_id).map_err(String::from)?;
     let mut details = blocking::run("provider_oauth_reset_codex_quota_load", {
         let db = db.clone();
         move || crate::providers::get_oauth_details(&db, provider_id)
@@ -318,10 +328,12 @@ pub(crate) async fn provider_oauth_reset_codex_quota(
             let db = db.clone();
             let refreshed_limits = refreshed_limits.clone();
             move || {
-                crate::domain::provider_oauth_limits::save_snapshot(
+                crate::domain::provider_oauth_limits::save_snapshot_if_current(
                     &db,
                     OAuthLimitSnapshotInput {
                         provider_id,
+                        short_remaining_percent: refreshed_limits.short_remaining_percent,
+                        long_remaining_percent: refreshed_limits.long_remaining_percent,
                         limit_short_label: refreshed_limits.limit_short_label.as_deref(),
                         limit_5h_text: refreshed_limits.limit_5h_text.as_deref(),
                         limit_weekly_text: refreshed_limits.limit_weekly_text.as_deref(),
@@ -329,6 +341,7 @@ pub(crate) async fn provider_oauth_reset_codex_quota(
                         limit_weekly_reset_at: refreshed_limits.limit_weekly_reset_at,
                         reset_credit_available_count: refreshed_limits.reset_credit_available_count,
                     },
+                    snapshot_generation,
                 )
             }
         })
@@ -336,6 +349,7 @@ pub(crate) async fn provider_oauth_reset_codex_quota(
         .map_err(Into::<String>::into)?;
     }
 
+    crate::app::oauth_quota_runtime::notify(&app, provider_id);
     Ok(result)
 }
 

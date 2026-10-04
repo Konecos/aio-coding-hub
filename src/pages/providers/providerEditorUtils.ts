@@ -17,6 +17,8 @@ export const DEFAULT_FORM_VALUES: ProviderEditorDialogFormInput = {
   api_key: "",
   auth_mode: "api_key",
   cost_multiplier: "1.0",
+  oauth_short_window_stop_percent: "",
+  oauth_long_window_stop_percent: "",
   limit_5h_usd: "",
   limit_daily_usd: "",
   limit_weekly_usd: "",
@@ -145,6 +147,12 @@ export function buildFormValues(initialValues: ProviderEditorInitialValues | nul
     api_key: initialValues.api_key,
     auth_mode: initialValues.auth_mode,
     cost_multiplier: String(initialValues.cost_multiplier),
+    oauth_short_window_stop_percent: valueOrEmpty(
+      initialValues.oauth_short_window_stop_percent ?? null
+    ),
+    oauth_long_window_stop_percent: valueOrEmpty(
+      initialValues.oauth_long_window_stop_percent ?? null
+    ),
     limit_5h_usd: valueOrEmpty(initialValues.limit_5h_usd),
     limit_daily_usd: valueOrEmpty(initialValues.limit_daily_usd),
     limit_weekly_usd: valueOrEmpty(initialValues.limit_weekly_usd),

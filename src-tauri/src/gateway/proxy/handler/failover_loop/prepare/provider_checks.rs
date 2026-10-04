@@ -84,12 +84,19 @@ pub(super) fn run_gates<R: tauri::Runtime>(
         return None;
     }
 
+    let mut quota_reason = None;
     if !provider_limits::gate_provider(provider_limits::ProviderLimitsInput {
         ctx,
         provider,
         earliest_available_unix: &mut counters.earliest_available_unix,
         skipped_limits: &mut counters.skipped_limits,
+        denial_reason: &mut quota_reason,
     }) {
+        let code = match quota_reason {
+            Some("threshold_reached") => GatewayErrorCode::ProviderOAuthThreshold,
+            Some("quota_unverified") => GatewayErrorCode::ProviderOAuthQuotaUnverified,
+            _ => GatewayErrorCode::ProviderRateLimited,
+        };
         push_skipped_provider_attempt(
             attempts,
             SkippedProviderAttempt {
@@ -97,9 +104,12 @@ pub(super) fn run_gates<R: tauri::Runtime>(
                 provider_name: identity.provider_name_base,
                 base_url: identity.provider_base_url_display,
                 error_category: "rate_limit",
-                error_code: GatewayErrorCode::ProviderRateLimited.as_str(),
-                reason: "provider skipped by rate limit".to_string(),
-                reason_code: Some(dc::REASON_RATE_LIMITED),
+                error_code: code.as_str(),
+                reason: format!(
+                    "provider skipped by {}",
+                    quota_reason.unwrap_or("rate limit")
+                ),
+                reason_code: Some(quota_reason.unwrap_or(dc::REASON_RATE_LIMITED)),
                 attempt_started_ms: input.started.elapsed().as_millis(),
                 circuit: None,
             },

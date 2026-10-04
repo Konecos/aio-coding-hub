@@ -3,6 +3,7 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 import { cliLongLabel } from "../../constants/clis";
 import { useNowUnix } from "../../hooks/useNowUnix";
 import { OAuthQuotaUsageInline } from "../providers/OAuthQuotaUsageInline";
+import { OAuthQuotaProtectionStatus } from "../providers/OAuthQuotaProtectionStatus";
 import { Card } from "../../ui/Card";
 import { ConfirmDialog } from "../../ui/ConfirmDialog";
 import { EmptyState } from "../../ui/EmptyState";
@@ -59,6 +60,7 @@ function OAuthQuotaProviderCard({
   return (
     <div className="rounded-lg border border-border bg-white px-3 py-2.5 shadow-sm dark:border-border dark:bg-secondary">
       <div className="flex flex-col gap-2">
+        <OAuthQuotaProtectionStatus state={row.quotaState} />
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2 text-xs text-secondary-foreground">
             <span

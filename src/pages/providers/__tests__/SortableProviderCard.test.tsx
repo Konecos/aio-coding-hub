@@ -52,6 +52,8 @@ function makeProvider(partial: Partial<ProviderSummary> = {}): ProviderSummary {
     enabled: true,
     priority: 0,
     cost_multiplier: 1.0,
+    oauth_short_window_stop_percent: null,
+    oauth_long_window_stop_percent: null,
     limit_5h_usd: null,
     limit_daily_usd: null,
     daily_reset_mode: "fixed",
@@ -197,6 +199,8 @@ describe("pages/providers/SortableProviderCard", () => {
 
   it("auto-fetches OAuth limits on mount for oauth providers", async () => {
     vi.mocked(providerOAuthFetchLimits).mockResolvedValue({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: null,
       limit_5h_text: "auto",
       limit_weekly_text: "200",
@@ -215,6 +219,8 @@ describe("pages/providers/SortableProviderCard", () => {
 
   it("renders provider-specific short-window labels for Gemini OAuth limits", async () => {
     vi.mocked(providerOAuthFetchLimits).mockResolvedValue({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "短窗",
       limit_5h_text: "88",
       limit_weekly_text: "300",
@@ -236,6 +242,8 @@ describe("pages/providers/SortableProviderCard", () => {
 
   it("forces Gemini OAuth limits to render with a generic short-window label", async () => {
     vi.mocked(providerOAuthFetchLimits).mockResolvedValue({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "1h",
       limit_5h_text: "88",
       limit_weekly_text: "300",
@@ -271,6 +279,8 @@ describe("pages/providers/SortableProviderCard", () => {
 
   it("renders Codex OAuth reset count and confirms before resetting", async () => {
     vi.mocked(providerOAuthFetchLimits).mockResolvedValue({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "5h",
       limit_5h_text: "0%",
       limit_weekly_text: "50%",
@@ -283,6 +293,8 @@ describe("pages/providers/SortableProviderCard", () => {
       code: "ok",
       windows_reset: 2,
       refreshed_limits: {
+        short_remaining_percent: null,
+        long_remaining_percent: null,
         limit_short_label: "5h",
         limit_5h_text: "100%",
         limit_weekly_text: "100%",
@@ -319,6 +331,8 @@ describe("pages/providers/SortableProviderCard", () => {
 
   it("does not render reset action for non-Codex OAuth providers", async () => {
     vi.mocked(providerOAuthFetchLimits).mockResolvedValue({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: "短窗",
       limit_5h_text: "88",
       limit_weekly_text: "300",
@@ -417,6 +431,8 @@ describe("pages/providers/SortableProviderCard", () => {
 
   it("renders limit chips", () => {
     renderCard({
+      oauth_short_window_stop_percent: null,
+      oauth_long_window_stop_percent: null,
       limit_5h_usd: 10,
       limit_daily_usd: 100,
       daily_reset_mode: "rolling",

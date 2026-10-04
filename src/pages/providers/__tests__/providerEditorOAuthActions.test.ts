@@ -87,6 +87,8 @@ function makeProvider(partial: Partial<ProviderSummary> = {}): ProviderSummary {
     enabled: partial.enabled ?? true,
     priority: partial.priority ?? 0,
     cost_multiplier: partial.cost_multiplier ?? 1,
+    oauth_short_window_stop_percent: partial.oauth_short_window_stop_percent ?? null,
+    oauth_long_window_stop_percent: partial.oauth_long_window_stop_percent ?? null,
     limit_5h_usd: partial.limit_5h_usd ?? null,
     limit_daily_usd: partial.limit_daily_usd ?? null,
     daily_reset_mode: partial.daily_reset_mode ?? "fixed",
@@ -214,6 +216,8 @@ describe("providerEditorOAuthActions", () => {
       expires_at: 123,
     });
     vi.mocked(providerOAuthFetchLimits).mockResolvedValue({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: null,
       limit_5h_text: "5h $1",
       limit_weekly_text: "weekly $7",
@@ -246,6 +250,8 @@ describe("providerEditorOAuthActions", () => {
       expires_at: 1234,
     });
     vi.mocked(providerOAuthFetchLimits).mockResolvedValue({
+      short_remaining_percent: null,
+      long_remaining_percent: null,
       limit_short_label: null,
       limit_5h_text: "5h $1",
       limit_weekly_text: "weekly $7",

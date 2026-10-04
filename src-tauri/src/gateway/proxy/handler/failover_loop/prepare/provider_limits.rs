@@ -10,6 +10,7 @@ pub(super) struct ProviderLimitsInput<'a, R: tauri::Runtime = tauri::Wry> {
     pub(super) provider: &'a providers::ProviderForGateway,
     pub(super) earliest_available_unix: &'a mut Option<i64>,
     pub(super) skipped_limits: &'a mut usize,
+    pub(super) denial_reason: &'a mut Option<&'static str>,
 }
 
 const USD_FEMTO_DENOM: f64 = 1_000_000_000_000_000.0;
@@ -362,6 +363,7 @@ pub(super) fn gate_provider<R: tauri::Runtime>(input: ProviderLimitsInput<'_, R>
         provider,
         earliest_available_unix,
         skipped_limits,
+        denial_reason,
     } = input;
 
     let has_oauth_quota_gate = provider.auth_mode == "oauth";
@@ -370,8 +372,15 @@ pub(super) fn gate_provider<R: tauri::Runtime>(input: ProviderLimitsInput<'_, R>
         return true;
     }
 
+    let protected = provider.oauth_short_window_stop_percent.is_some()
+        || provider.oauth_long_window_stop_percent.is_some();
     let conn = match ctx.state.db.open_connection() {
         Ok(conn) => conn,
+        Err(_) if has_oauth_quota_gate && protected => {
+            *denial_reason = Some("quota_unverified");
+            *skipped_limits = skipped_limits.saturating_add(1);
+            return false;
+        }
         Err(_) => return true,
     };
 
@@ -379,13 +388,30 @@ pub(super) fn gate_provider<R: tauri::Runtime>(input: ProviderLimitsInput<'_, R>
     let end_unix = now_unix.saturating_add(1);
 
     if has_oauth_quota_gate {
-        match crate::domain::provider_oauth_limits::gate_snapshot(&conn, provider.id, now_unix) {
+        match crate::domain::provider_oauth_limits::gate_with_thresholds(
+            &conn,
+            provider.id,
+            crate::shared::time::now_unix_seconds(),
+            provider.oauth_short_window_stop_percent,
+            provider.oauth_long_window_stop_percent,
+        ) {
             Ok(crate::domain::provider_oauth_limits::OAuthLimitGate::Allow) => {}
             Ok(crate::domain::provider_oauth_limits::OAuthLimitGate::Limited { reset_at }) => {
+                *denial_reason = Some("quota_exhausted");
                 *skipped_limits = skipped_limits.saturating_add(1);
                 if let Some(reset_at) = reset_at {
                     update_earliest(earliest_available_unix, reset_at);
                 }
+                return false;
+            }
+            Ok(crate::domain::provider_oauth_limits::OAuthLimitGate::Threshold { .. }) => {
+                *denial_reason = Some("threshold_reached");
+                *skipped_limits = skipped_limits.saturating_add(1);
+                return false;
+            }
+            Ok(crate::domain::provider_oauth_limits::OAuthLimitGate::Unverified) => {
+                *denial_reason = Some("quota_unverified");
+                *skipped_limits = skipped_limits.saturating_add(1);
                 return false;
             }
             Err(err) => {
@@ -394,6 +420,11 @@ pub(super) fn gate_provider<R: tauri::Runtime>(input: ProviderLimitsInput<'_, R>
                     provider_name = %provider.name,
                     "failed to gate OAuth provider quota snapshot: {err}"
                 );
+                if protected {
+                    *denial_reason = Some("quota_unverified");
+                    *skipped_limits = skipped_limits.saturating_add(1);
+                    return false;
+                }
             }
         }
     }
@@ -643,6 +674,8 @@ mod tests {
             claude_models: providers::ClaudeModels::default(),
             model_policy: Some(providers::ProviderModelPolicyV1::all()),
             model_policy_status: providers::ProviderModelPolicyStatus::Ready,
+            oauth_short_window_stop_percent: None,
+            oauth_long_window_stop_percent: None,
             limit_5h_usd: Some(9_000.0),
             limit_daily_usd: None,
             daily_reset_mode: providers::DailyResetMode::Fixed,
@@ -827,6 +860,7 @@ INSERT INTO request_logs (
             provider: &provider,
             earliest_available_unix: &mut earliest_available_unix,
             skipped_limits: &mut skipped_limits,
+            denial_reason: &mut None,
         }));
         assert_eq!(skipped_limits, 1);
         assert_eq!(

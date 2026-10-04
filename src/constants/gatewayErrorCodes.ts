@@ -28,6 +28,8 @@ export const GatewayErrorCodes = {
   INVALID_BASE_URL: "GW_INVALID_BASE_URL",
   PORT_IN_USE: "GW_PORT_IN_USE",
   RESPONSE_BUILD_ERROR: "GW_RESPONSE_BUILD_ERROR",
+  PROVIDER_OAUTH_THRESHOLD: "GW_PROVIDER_OAUTH_THRESHOLD",
+  PROVIDER_OAUTH_QUOTA_UNVERIFIED: "GW_PROVIDER_OAUTH_QUOTA_UNVERIFIED",
   PROVIDER_RATE_LIMITED: "GW_PROVIDER_RATE_LIMITED",
   PROVIDER_CIRCUIT_OPEN: "GW_PROVIDER_CIRCUIT_OPEN",
   CLI_PROXY_DISABLED: "GW_CLI_PROXY_DISABLED",
@@ -74,6 +76,8 @@ const GatewayErrorShortLabels = {
   [GatewayErrorCodes.INVALID_BASE_URL]: "无效URL",
   [GatewayErrorCodes.PORT_IN_USE]: "端口占用",
   [GatewayErrorCodes.RESPONSE_BUILD_ERROR]: "响应构建错误",
+  [GatewayErrorCodes.PROVIDER_OAUTH_THRESHOLD]: "额度保护暂停",
+  [GatewayErrorCodes.PROVIDER_OAUTH_QUOTA_UNVERIFIED]: "额度待确认",
   [GatewayErrorCodes.PROVIDER_RATE_LIMITED]: "供应商限额",
   [GatewayErrorCodes.PROVIDER_CIRCUIT_OPEN]: "供应商熔断",
   [GatewayErrorCodes.CLI_PROXY_DISABLED]: "代理未启用",
@@ -198,6 +202,14 @@ export const GatewayErrorDescriptions = {
   GW_RESPONSE_BUILD_ERROR: {
     desc: "构建响应失败",
     suggestion: "网关在构建 HTTP 响应时发生内部错误。请查看日志文件获取更多信息。",
+  },
+  GW_PROVIDER_OAUTH_THRESHOLD: {
+    desc: "OAuth 剩余额度已达到停止阈值",
+    suggestion: "等待额度恢复、刷新确认，或调整该供应商的剩余额度保护设置。",
+  },
+  GW_PROVIDER_OAUTH_QUOTA_UNVERIFIED: {
+    desc: "无法确认 OAuth 受控窗口的剩余额度",
+    suggestion: "刷新额度并检查 OAuth 连接；额度确认前该供应商暂时不参与路由。",
   },
   GW_PROVIDER_RATE_LIMITED: {
     desc: "Provider 速率限制",

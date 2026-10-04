@@ -38,6 +38,8 @@ fn decode_provider_row(
         },
         model_policy,
         model_policy_status,
+        oauth_short_window_stop_percent: row.get("oauth_short_window_stop_percent")?,
+        oauth_long_window_stop_percent: row.get("oauth_long_window_stop_percent")?,
         limit_5h_usd: row.get("limit_5h_usd")?,
         limit_daily_usd: row.get("limit_daily_usd")?,
         daily_reset_mode: DailyResetMode::parse(&daily_reset_mode_raw)
@@ -73,6 +75,8 @@ fn row_to_summary(row: &rusqlite::Row<'_>) -> Result<ProviderSummary, rusqlite::
         enabled: row.get::<_, i64>("enabled")? != 0,
         priority: row.get("priority")?,
         cost_multiplier: row.get("cost_multiplier")?,
+        oauth_short_window_stop_percent: decoded.oauth_short_window_stop_percent,
+        oauth_long_window_stop_percent: decoded.oauth_long_window_stop_percent,
         limit_5h_usd: decoded.limit_5h_usd,
         limit_daily_usd: decoded.limit_daily_usd,
         daily_reset_mode: decoded.daily_reset_mode,
@@ -264,6 +268,8 @@ fn insert_provider(
     priority: Option<i64>,
     claude_models: Option<ClaudeModels>,
     model_policy: Option<ProviderModelPolicyV1>,
+    oauth_short_window_stop_percent: Option<i64>,
+    oauth_long_window_stop_percent: Option<i64>,
     limit_5h_usd: Option<f64>,
     limit_daily_usd: Option<f64>,
     daily_reset_mode: Option<DailyResetMode>,
@@ -311,6 +317,8 @@ fn insert_provider(
         None => Some(ProviderModelPolicyV1::all().to_json()?),
     };
 
+    validate_oauth_threshold(oauth_short_window_stop_percent)?;
+    validate_oauth_threshold(oauth_long_window_stop_percent)?;
     let limit_5h_usd = validate_limit_usd("limit_5h_usd", limit_5h_usd)?;
     let limit_daily_usd = validate_limit_usd("limit_daily_usd", limit_daily_usd)?;
     let limit_weekly_usd = validate_limit_usd("limit_weekly_usd", limit_weekly_usd)?;
@@ -416,6 +424,12 @@ INSERT INTO providers(
     })?;
 
     let id = tx.last_insert_rowid();
+    save_oauth_thresholds(
+        tx,
+        id,
+        oauth_short_window_stop_percent,
+        oauth_long_window_stop_percent,
+    )?;
     replace_extension_values(tx, id, extension_values)?;
     Ok(id)
 }
@@ -441,6 +455,8 @@ SELECT
   enabled,
   priority,
   cost_multiplier,
+  oauth_short_window_stop_percent,
+  oauth_long_window_stop_percent,
   limit_5h_usd,
   limit_daily_usd,
   daily_reset_mode,
@@ -704,6 +720,8 @@ SELECT
   enabled,
   priority,
   cost_multiplier,
+  oauth_short_window_stop_percent,
+  oauth_long_window_stop_percent,
   limit_5h_usd,
   limit_daily_usd,
   daily_reset_mode,
@@ -771,6 +789,8 @@ fn map_gateway_provider_row(
         claude_models: decoded.claude_models,
         model_policy: decoded.model_policy,
         model_policy_status: decoded.model_policy_status,
+        oauth_short_window_stop_percent: decoded.oauth_short_window_stop_percent,
+        oauth_long_window_stop_percent: decoded.oauth_long_window_stop_percent,
         limit_5h_usd: decoded.limit_5h_usd,
         limit_daily_usd: decoded.limit_daily_usd,
         daily_reset_mode: decoded.daily_reset_mode,
@@ -809,6 +829,8 @@ SELECT
   p.api_key_plaintext,
   p.claude_models_json,
   p.model_policy_json,
+  p.oauth_short_window_stop_percent,
+  p.oauth_long_window_stop_percent,
   p.limit_5h_usd,
   p.limit_daily_usd,
   p.daily_reset_mode,
@@ -866,6 +888,8 @@ SELECT
   api_key_plaintext,
   claude_models_json,
   model_policy_json,
+  oauth_short_window_stop_percent,
+  oauth_long_window_stop_percent,
   limit_5h_usd,
   limit_daily_usd,
   daily_reset_mode,
@@ -1059,6 +1083,8 @@ SELECT
   api_key_plaintext,
   claude_models_json,
   model_policy_json,
+  oauth_short_window_stop_percent,
+  oauth_long_window_stop_percent,
   limit_5h_usd,
   limit_daily_usd,
   daily_reset_mode,
@@ -1172,6 +1198,8 @@ pub fn upsert(
         priority,
         claude_models,
         model_policy,
+        oauth_short_window_stop_percent,
+        oauth_long_window_stop_percent,
         limit_5h_usd,
         limit_daily_usd,
         daily_reset_mode,
@@ -1285,6 +1313,8 @@ pub fn upsert(
                 priority,
                 claude_models,
                 model_policy,
+                oauth_short_window_stop_percent,
+                oauth_long_window_stop_percent,
                 limit_5h_usd,
                 limit_daily_usd,
                 daily_reset_mode,
@@ -1534,6 +1564,15 @@ WHERE id = ?29
                 other => db_err!("failed to update provider: {other}"),
             })?;
 
+            if next_auth_mode != existing_auth_mode_raw {
+                crate::domain::provider_oauth_limits::clear_snapshot_on(&tx, id)?;
+            }
+            save_oauth_thresholds(
+                &tx,
+                id,
+                oauth_short_window_stop_percent,
+                oauth_long_window_stop_percent,
+            )?;
             replace_extension_values(&tx, id, extension_values.as_deref())?;
             tx.commit().map_err(|e| db_err!("failed to commit: {e}"))?;
 
@@ -1572,6 +1611,8 @@ pub fn duplicate(
         priority,
         claude_models,
         model_policy,
+        oauth_short_window_stop_percent,
+        oauth_long_window_stop_percent,
         limit_5h_usd,
         limit_daily_usd,
         daily_reset_mode,
@@ -1678,6 +1719,8 @@ pub fn duplicate(
         priority,
         claude_models,
         model_policy,
+        oauth_short_window_stop_percent,
+        oauth_long_window_stop_percent,
         limit_5h_usd,
         limit_daily_usd,
         daily_reset_mode,
@@ -1972,9 +2015,12 @@ pub(crate) fn update_oauth_tokens(
     expires_at: Option<i64>,
     email: Option<&str>,
 ) -> crate::shared::error::AppResult<()> {
-    let conn = db.open_connection()?;
+    let mut conn = db.open_connection()?;
+    let tx = conn
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(|e| db_err!("failed to start OAuth account update: {e}"))?;
     let now = crate::shared::time::now_unix_seconds();
-    conn.execute(
+    tx.execute(
         r#"
 UPDATE providers SET
   auth_mode = ?1,
@@ -2008,6 +2054,9 @@ WHERE id = ?12
         ],
     )
     .map_err(|e| crate::shared::error::db_err!("failed to update OAuth tokens: {e}"))?;
+    crate::domain::provider_oauth_limits::clear_snapshot_on(&tx, provider_id)?;
+    tx.commit()
+        .map_err(|e| db_err!("failed to commit OAuth account update: {e}"))?;
     Ok(())
 }
 
@@ -2083,9 +2132,12 @@ pub(crate) fn clear_oauth(
     db: &crate::db::Db,
     provider_id: i64,
 ) -> crate::shared::error::AppResult<()> {
-    let conn = db.open_connection()?;
+    let mut conn = db.open_connection()?;
+    let tx = conn
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(|e| db_err!("failed to start OAuth disconnect: {e}"))?;
     let now = crate::shared::time::now_unix_seconds();
-    conn.execute(
+    tx.execute(
         r#"
 UPDATE providers SET
   auth_mode = 'api_key',
@@ -2106,6 +2158,9 @@ WHERE id = ?2
         rusqlite::params![now, provider_id],
     )
     .map_err(|e| crate::shared::error::db_err!("failed to clear OAuth: {e}"))?;
+    crate::domain::provider_oauth_limits::clear_snapshot_on(&tx, provider_id)?;
+    tx.commit()
+        .map_err(|e| db_err!("failed to commit OAuth disconnect: {e}"))?;
     Ok(())
 }
 
@@ -2203,5 +2258,27 @@ pub(crate) fn set_oauth_last_error(
         rusqlite::params![error_msg, now, provider_id],
     )
     .map_err(|e| db_err!("failed to set oauth_last_error: {e}"))?;
+    Ok(())
+}
+
+fn validate_oauth_threshold(value: Option<i64>) -> crate::shared::error::AppResult<()> {
+    if value.is_some_and(|v| !(0..=99).contains(&v)) {
+        return Err(
+            "SEC_INVALID_INPUT: OAuth stop percent must be an integer within [0, 99]".into(),
+        );
+    }
+    Ok(())
+}
+
+fn save_oauth_thresholds(
+    conn: &Connection,
+    id: i64,
+    short: Option<i64>,
+    long: Option<i64>,
+) -> crate::shared::error::AppResult<()> {
+    validate_oauth_threshold(short)?;
+    validate_oauth_threshold(long)?;
+    conn.execute("DELETE FROM provider_oauth_quota_refresh WHERE provider_id = ?1 AND EXISTS (SELECT 1 FROM providers WHERE id = ?1 AND (oauth_short_window_stop_percent IS NOT ?2 OR oauth_long_window_stop_percent IS NOT ?3))", params![id, short, long]).map_err(|e| db_err!("failed to reschedule quota refresh: {e}"))?;
+    conn.execute("UPDATE providers SET oauth_short_window_stop_percent = ?2, oauth_long_window_stop_percent = ?3 WHERE id = ?1", params![id, short, long]).map_err(|e| db_err!("failed to save OAuth thresholds: {e}"))?;
     Ok(())
 }

@@ -124,6 +124,8 @@ pub(crate) struct ProviderUpsertInput {
     pub priority: Option<i64>,
     pub claude_models: Option<providers::ClaudeModels>,
     pub model_policy: Option<providers::ProviderModelPolicyV1>,
+    pub oauth_short_window_stop_percent: Option<i64>,
+    pub oauth_long_window_stop_percent: Option<i64>,
     #[serde(rename = "limit5hUsd", alias = "limit5HUsd")]
     #[specta(rename = "limit5hUsd")]
     pub limit_5h_usd: Option<f64>,
@@ -253,6 +255,8 @@ pub(crate) async fn provider_upsert(
         priority,
         claude_models,
         model_policy,
+        oauth_short_window_stop_percent,
+        oauth_long_window_stop_percent,
         limit_5h_usd,
         limit_daily_usd,
         daily_reset_mode,
@@ -308,6 +312,8 @@ pub(crate) async fn provider_upsert(
                         priority,
                         claude_models,
                         model_policy,
+                        oauth_short_window_stop_percent,
+                        oauth_long_window_stop_percent,
                         limit_5h_usd,
                         limit_daily_usd,
                         daily_reset_mode,
@@ -373,6 +379,9 @@ pub(crate) async fn provider_upsert(
     }
 
     let (provider, _, mapping_sources_changed) = result?;
+    if provider.auth_mode == "oauth" {
+        crate::app::oauth_quota_runtime::notify(&app, provider.id);
+    }
     refresh_codex_catalog_after_routing_change(&app, refresh_db, mapping_sources_changed);
     Ok(provider)
 }
@@ -423,6 +432,8 @@ pub(crate) async fn provider_duplicate(
                     priority: None,
                     claude_models: Some(source.claude_models.clone()),
                     model_policy: source.model_policy.clone(),
+                    oauth_short_window_stop_percent: source.oauth_short_window_stop_percent,
+                    oauth_long_window_stop_percent: source.oauth_long_window_stop_percent,
                     limit_5h_usd: source.limit_5h_usd,
                     limit_daily_usd: source.limit_daily_usd,
                     daily_reset_mode: Some(source.daily_reset_mode),
@@ -732,6 +743,8 @@ mod tests {
             enabled: true,
             priority: 1,
             cost_multiplier: 1.0,
+            oauth_short_window_stop_percent: None,
+            oauth_long_window_stop_percent: None,
             limit_5h_usd: None,
             limit_daily_usd: None,
             daily_reset_mode: providers::DailyResetMode::Fixed,
@@ -846,6 +859,8 @@ mod tests {
             enabled: true,
             priority: 1,
             cost_multiplier: 1.0,
+            oauth_short_window_stop_percent: None,
+            oauth_long_window_stop_percent: None,
             limit_5h_usd: None,
             limit_daily_usd: None,
             daily_reset_mode: providers::DailyResetMode::Fixed,

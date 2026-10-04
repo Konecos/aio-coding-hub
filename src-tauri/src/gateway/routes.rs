@@ -779,6 +779,8 @@ mod tests {
                 priority: Some(priority),
                 claude_models: None,
                 model_policy,
+                oauth_short_window_stop_percent: None,
+                oauth_long_window_stop_percent: None,
                 limit_5h_usd: None,
                 limit_daily_usd: None,
                 daily_reset_mode: None,
@@ -867,6 +869,8 @@ mod tests {
                 priority: Some(priority),
                 claude_models: None,
                 model_policy: None,
+                oauth_short_window_stop_percent: None,
+                oauth_long_window_stop_percent: None,
                 limit_5h_usd: None,
                 limit_daily_usd: None,
                 daily_reset_mode: None,
@@ -915,6 +919,8 @@ mod tests {
                 priority: Some(priority),
                 claude_models: None,
                 model_policy,
+                oauth_short_window_stop_percent: None,
+                oauth_long_window_stop_percent: None,
                 limit_5h_usd: None,
                 limit_daily_usd: None,
                 daily_reset_mode: None,
@@ -3893,6 +3899,8 @@ module.exports.activate = function activate(api) {
                     ..Default::default()
                 }),
                 model_policy: None,
+                oauth_short_window_stop_percent: None,
+                oauth_long_window_stop_percent: None,
                 limit_5h_usd: None,
                 limit_daily_usd: None,
                 daily_reset_mode: None,
@@ -5412,6 +5420,121 @@ module.exports.activate = function activate(api) {
         assert_eq!(
             attempts[0].get("error_code").and_then(Value::as_str),
             Some(crate::gateway::proxy::GatewayErrorCode::ProviderRateLimited.as_str())
+        );
+        assert_eq!(
+            attempts[1].get("provider_id").and_then(Value::as_i64),
+            Some(success_provider_id)
+        );
+        assert_eq!(
+            attempts[1].get("outcome").and_then(Value::as_str),
+            Some("success")
+        );
+
+        let oauth_circuit_snapshot = circuit.snapshot(oauth_provider_id, 0);
+        assert_eq!(
+            oauth_circuit_snapshot.state,
+            circuit_breaker::CircuitState::Closed
+        );
+        assert_eq!(oauth_circuit_snapshot.failure_count, 0);
+        assert!(oauth_circuit_snapshot.cooldown_until.is_none());
+
+        success_task.abort();
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn mock_runtime_router_skips_oauth_threshold_without_opening_circuit() {
+        let _env_lock = crate::test_support::test_env_lock();
+        let home = tempfile::tempdir().expect("home dir");
+        let _env = isolate_app_env(home.path());
+        let app = tauri::test::mock_app();
+        let app_handle = app.handle().clone();
+
+        let mut app_settings = settings::AppSettings::default();
+        app_settings.failover_max_attempts_per_provider = 1;
+        app_settings.failover_max_providers_to_try = 2;
+        app_settings.provider_cooldown_seconds = 30;
+        settings::write(&app_handle, &app_settings).expect("write settings");
+        crate::cli_proxy::set_enabled(&app_handle, "codex", true, "http://127.0.0.1:37123")
+            .expect("enable codex cli proxy");
+
+        let db_dir = tempfile::tempdir().expect("db dir");
+        let db = db::init_for_tests(&db_dir.path().join("gateway-route-oauth-quota-test.sqlite"))
+            .expect("init test db");
+        let now = crate::gateway::util::now_unix_seconds() as i64;
+        let oauth_provider_id =
+            insert_codex_oauth_provider_with_priority(&db, "OAuth Quota Stub", 0);
+        db.open_connection()
+            .unwrap()
+            .execute(
+                "UPDATE providers SET oauth_short_window_stop_percent = 10 WHERE id = ?1",
+                rusqlite::params![oauth_provider_id],
+            )
+            .unwrap();
+        crate::domain::provider_oauth_limits::save_snapshot(
+            &db,
+            crate::domain::provider_oauth_limits::OAuthLimitSnapshotInput {
+                provider_id: oauth_provider_id,
+                short_remaining_percent: Some(8.0),
+                long_remaining_percent: Some(80.0),
+                limit_short_label: Some("5h"),
+                limit_5h_text: Some("8%"),
+                limit_weekly_text: Some("80%"),
+                limit_5h_reset_at: Some(now + 3600),
+                limit_weekly_reset_at: None,
+                reset_credit_available_count: None,
+            },
+        )
+        .unwrap();
+
+        let success_body = r#"{"id":"stub-ok","object":"chat.completion","choices":[]}"#;
+        let (success_base_url, success_task) = spawn_json_upstream(success_body).await;
+        let success_provider_id =
+            insert_codex_provider_with_priority(&db, "Success Stub", success_base_url, 1);
+
+        let circuit = Arc::new(circuit_breaker::CircuitBreaker::new(
+            circuit_breaker::CircuitBreakerConfig::default(),
+            HashMap::new(),
+            None,
+        ));
+        let session = Arc::new(session_manager::SessionManager::new());
+        let (log_tx, mut log_rx) = tokio::sync::mpsc::channel(4);
+        let router = build_router(gateway_state_with_parts(
+            app_handle,
+            db,
+            log_tx,
+            circuit.clone(),
+            session,
+        ));
+        let request = Request::builder()
+            .method(Method::POST)
+            .uri("/v1/chat/completions")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(
+                r#"{"model":"gpt-route-oauth-quota","messages":[{"role":"user","content":"hello"}]}"#,
+            ))
+            .expect("request");
+
+        let response = router.oneshot(request).await.expect("route response");
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let log = recv_terminal_request_log(&mut log_rx).await;
+        assert_eq!(log.status, Some(200));
+        assert_eq!(log.error_code, None);
+
+        let attempts: Value = serde_json::from_str(&log.attempts_json).expect("attempts json");
+        let attempts = attempts.as_array().expect("attempt array");
+        assert_eq!(attempts.len(), 2);
+        assert_eq!(
+            attempts[0].get("provider_id").and_then(Value::as_i64),
+            Some(oauth_provider_id)
+        );
+        assert_eq!(
+            attempts[0].get("outcome").and_then(Value::as_str),
+            Some("skipped")
+        );
+        assert_eq!(
+            attempts[0].get("error_code").and_then(Value::as_str),
+            Some(crate::gateway::proxy::GatewayErrorCode::ProviderOAuthThreshold.as_str())
         );
         assert_eq!(
             attempts[1].get("provider_id").and_then(Value::as_i64),

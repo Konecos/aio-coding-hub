@@ -3,10 +3,14 @@ import { Input } from "../../ui/Input";
 import { Button } from "../../ui/Button";
 import { formatUnixSeconds } from "../../utils/formatters";
 import type { UseProviderEditorFormReturn } from "./useProviderEditorForm";
+import { useOAuthQuotaStates } from "../../query/oauthQuotaStates";
 
 export function OAuthSection(props: { form: UseProviderEditorFormReturn }) {
   const {
     register,
+    watch,
+    setValue,
+    editingProviderId,
     saving,
     cliKey,
     oauthStatus,
@@ -19,6 +23,8 @@ export function OAuthSection(props: { form: UseProviderEditorFormReturn }) {
     handleOAuthRefresh,
     handleOAuthDisconnect,
   } = props.form;
+  const quotas = useOAuthQuotaStates(editingProviderId != null);
+  const quota = quotas.data?.find((row) => row.provider_id === editingProviderId);
 
   return (
     <>
@@ -113,6 +119,72 @@ export function OAuthSection(props: { form: UseProviderEditorFormReturn }) {
               ) : null}
             </div>
           )}
+        </div>
+      </FormField>
+
+      <FormField label="剩余额度保护">
+        <div className="space-y-3 rounded-md border border-border p-3">
+          {(
+            [
+              [
+                "oauth_short_window_stop_percent",
+                cliKey === "codex" || cliKey === "claude" ? "5 小时" : "短窗",
+                "short_remaining_percent",
+                "10",
+              ],
+              [
+                "oauth_long_window_stop_percent",
+                cliKey === "codex" || cliKey === "claude" ? "每周" : "长窗",
+                "long_remaining_percent",
+                "5",
+              ],
+            ] as const
+          ).map(([field, label, percent, initial]) => {
+            const value = watch(field) ?? "";
+            const active = value !== "";
+            const unsupported =
+              cliKey === "grok" ||
+              (quota?.checked_at != null && !quota.last_error && quota.limits?.[percent] == null);
+            return (
+              <div key={field} className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      disabled={saving || (!active && unsupported)}
+                      onChange={(event) =>
+                        setValue(field, event.target.checked ? initial : "", { shouldDirty: true })
+                      }
+                    />
+                    {label}剩余 ≤
+                  </label>
+                  <Input
+                    aria-label={`${label}停止阈值`}
+                    type="number"
+                    min="0"
+                    max="99"
+                    step="1"
+                    className="w-20"
+                    disabled={saving || !active}
+                    {...register(field)}
+                  />
+                  <span>% 时暂停使用</span>
+                </div>
+                {unsupported ? (
+                  <p className="text-xs text-muted-foreground">该窗口暂不支持百分比额度保护。</p>
+                ) : null}
+              </div>
+            );
+          })}
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            任一窗口达到阈值后自动切换供应商，刷新确认额度恢复后自动恢复。开启保护后，额度未知或过期时暂时跳过。基于最近额度数据判断，存在刷新延迟。
+          </p>
+          {cliKey === "gemini" ? (
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Gemini 按窗口内各模型的最低剩余百分比判断，命中后暂停整个供应商。
+            </p>
+          ) : null}
         </div>
       </FormField>
 

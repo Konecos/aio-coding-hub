@@ -335,7 +335,19 @@ async fn serve<R>(
         if !terminal {
             let mut event = serde_json::from_slice::<Value>(&error_body)
                 .ok()
-                .filter(|v| v.get("type").and_then(Value::as_str) == Some("error"))
+                .and_then(|value| {
+                    if value.get("type").and_then(Value::as_str) == Some("error") {
+                        return Some(value);
+                    }
+                    let code = value.get("error_code").and_then(Value::as_str)?;
+                    crate::gateway::proxy::GatewayErrorCode::from_str(code)?;
+                    let message = value.get("message").and_then(Value::as_str)?;
+                    let mut event = protocol::error_event(code, message);
+                    if let Some(attempts) = value.get("attempts") {
+                        event["attempts"] = attempts.clone();
+                    }
+                    Some(event)
+                })
                 .unwrap_or_else(|| {
                     protocol::error_event(
                         "upstream_error",

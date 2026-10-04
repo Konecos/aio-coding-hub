@@ -25,7 +25,12 @@ impl GatewayBackgroundTasks {
         let (circuit_persist_tx, circuit_task) =
             provider_circuit_breakers::start_buffered_writer(db.clone());
         let (oauth_refresh_shutdown, oauth_refresh_rx) = watch::channel(false);
-        let oauth_refresh_task = super::oauth::refresh_loop::spawn(app, db, oauth_refresh_rx);
+        let token_task =
+            super::oauth::refresh_loop::spawn(app.clone(), db.clone(), oauth_refresh_rx.clone());
+        let quota_task = crate::app::oauth_quota_runtime::spawn(app, db, oauth_refresh_rx);
+        let oauth_refresh_task = tauri::async_runtime::spawn(async move {
+            let _ = tokio::join!(token_task, quota_task);
+        });
 
         Self {
             log_tx,

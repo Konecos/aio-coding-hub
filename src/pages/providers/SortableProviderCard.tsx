@@ -27,6 +27,8 @@ import {
   type ProviderSummary,
 } from "../../services/providers/providers";
 import { OAuthQuotaUsageInline } from "../../components/providers/OAuthQuotaUsageInline";
+import { useOAuthQuotaStates } from "../../query/oauthQuotaStates";
+import { OAuthQuotaProtectionStatus } from "../../components/providers/OAuthQuotaProtectionStatus";
 import { openDesktopUrl } from "../../services/desktop/opener";
 import { Button } from "../../ui/Button";
 import { Card } from "../../ui/Card";
@@ -204,10 +206,15 @@ const ProviderCard = memo(function ProviderCard({
   const [resettingCodexQuota, setResettingCodexQuota] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const { data: oauthLimits = null, isLoading: limitsQueryLoading } = useOAuthLimitsQuery(
+  const { data: cachedOAuthLimits = null, isLoading: limitsQueryLoading } = useOAuthLimitsQuery(
     provider.id,
-    isOAuth
+    isOAuth &&
+      provider.oauth_short_window_stop_percent == null &&
+      provider.oauth_long_window_stop_percent == null
   );
+  const backendQuotas = useOAuthQuotaStates(isOAuth);
+  const oauthLimits =
+    backendQuotas.data?.find((row) => row.provider_id === provider.id)?.limits ?? cachedOAuthLimits;
   const limitsLoading = limitsQueryLoading || limitsRefreshing;
   const shouldTrackNowUnix =
     isUnavailable ||
@@ -269,7 +276,7 @@ const ProviderCard = memo(function ProviderCard({
     setResetError(null);
     try {
       const result = await resetProviderOAuthCodexQuota(queryClient, provider.id, {
-        resetCircuitAfterRefresh: true,
+        resetCircuitAfterRefresh: false,
       });
       if (result.refresh_error) {
         setResetError(`已重置，但刷新用量失败：${result.refresh_error}`);
@@ -330,6 +337,13 @@ const ProviderCard = memo(function ProviderCard({
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
               {isOAuth ? (
                 <>
+                  <OAuthQuotaProtectionStatus
+                    state={backendQuotas.data?.find((row) => row.provider_id === provider.id)}
+                    protectionEnabled={
+                      provider.oauth_short_window_stop_percent != null ||
+                      provider.oauth_long_window_stop_percent != null
+                    }
+                  />
                   <button
                     type="button"
                     onClick={(e) => {
@@ -337,7 +351,7 @@ const ProviderCard = memo(function ProviderCard({
                       if (limitsRefreshing) return;
                       setLimitsRefreshing(true);
                       void refreshProviderOAuthLimits(queryClient, provider.id, {
-                        resetCircuitAfterRefresh: true,
+                        resetCircuitAfterRefresh: false,
                       })
                         .catch(() => {})
                         .finally(() => setLimitsRefreshing(false));

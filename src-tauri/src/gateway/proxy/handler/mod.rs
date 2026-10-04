@@ -445,6 +445,8 @@ mod tests {
             claude_models: crate::providers::ClaudeModels::default(),
             model_policy: Some(crate::providers::ProviderModelPolicyV1::all()),
             model_policy_status: crate::providers::ProviderModelPolicyStatus::Ready,
+            oauth_short_window_stop_percent: None,
+            oauth_long_window_stop_percent: None,
             limit_5h_usd: None,
             limit_daily_usd: None,
             daily_reset_mode: crate::providers::DailyResetMode::Fixed,

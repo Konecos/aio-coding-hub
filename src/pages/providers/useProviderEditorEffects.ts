@@ -209,6 +209,14 @@ export function useProviderEditorEffects(d: EffectDeps) {
       api_key: "",
       auth_mode: initialAuthMode === "cx2cc" ? "api_key" : initialAuthMode,
       cost_multiplier: String(snapshot.cost_multiplier ?? 1.0),
+      oauth_short_window_stop_percent:
+        snapshot.oauth_short_window_stop_percent != null
+          ? String(snapshot.oauth_short_window_stop_percent)
+          : "",
+      oauth_long_window_stop_percent:
+        snapshot.oauth_long_window_stop_percent != null
+          ? String(snapshot.oauth_long_window_stop_percent)
+          : "",
       limit_5h_usd: snapshot.limit_5h_usd != null ? String(snapshot.limit_5h_usd) : "",
       limit_daily_usd: snapshot.limit_daily_usd != null ? String(snapshot.limit_daily_usd) : "",
       limit_weekly_usd: snapshot.limit_weekly_usd != null ? String(snapshot.limit_weekly_usd) : "",
