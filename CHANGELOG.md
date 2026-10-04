@@ -1,5 +1,27 @@
 # Changelog
 
+## [100.60.20](https://github.com/Konecos/aio-coding-hub/compare/aio-coding-hub-v100.60.20...aio-coding-hub-v100.60.20) (2026-10-04)
+
+
+### Features
+
+* 增加可配置通信信息驻留与实时排查 ([f2da5fc](https://github.com/Konecos/aio-coding-hub/commit/f2da5fc13aef99db0449b2ae89ff324a6b1f03be))
+* 添加 Codex 模型目录重新生成按钮 ([70afd5d](https://github.com/Konecos/aio-coding-hub/commit/70afd5d4f75d686972e7156a7343eb8c7ca70010))
+* 添加 Codex 模型能力预设与 DeepSeek Responses 适配 ([697b611](https://github.com/Konecos/aio-coding-hub/commit/697b611fd1c20bed98c08d924dbcb2d93fd29cc2))
+
+
+### Bug Fixes
+
+* **diagnostics:** 通过桌面适配器判断运行环境 ([ba0fc55](https://github.com/Konecos/aio-coding-hub/commit/ba0fc55449615b02eb9f1817bfd1a34a8b6d567c))
+* **plugins:** 保持 Fork 版本与上游插件兼容 ([89412da](https://github.com/Konecos/aio-coding-hub/commit/89412da437d830cdb49e222abc6b3364dbce3ca6))
+* **release:** 修复 Fork 发布基线并迁移至 100 版本 ([43a8673](https://github.com/Konecos/aio-coding-hub/commit/43a8673e68d866469a22b0b74c5bfc7354b5a0cc))
+* **test:** 先释放插件进程再关闭测试运行时 ([e838d4e](https://github.com/Konecos/aio-coding-hub/commit/e838d4e0708804ff0218ee7d65087df05b2cc11f))
+* **test:** 将发布基线测试迁移至 Vitest ([1edb58f](https://github.com/Konecos/aio-coding-hub/commit/1edb58f6798068cc433a04264b275233c42d63ca))
+* **test:** 按路径组件校验 Windows 插件目录 ([861e5dc](https://github.com/Konecos/aio-coding-hub/commit/861e5dca6d2b03d88753ade8482b32b852479ad5))
+* **wsl:** 清理阻塞 Clippy 的未使用代码 ([5668086](https://github.com/Konecos/aio-coding-hub/commit/566808684f33dc236a9a83b3b4aeccaf19157c1c))
+* 将项目与更新链接迁移至 Konecos 仓库 ([e721d78](https://github.com/Konecos/aio-coding-hub/commit/e721d78e95eb533f3105291bf352767f12a100ba))
+* 按字节统计通信驻留元数据容量 ([a033338](https://github.com/Konecos/aio-coding-hub/commit/a0333389f078c0afb4f0598888c7348545be9ab8))
+
 ## [0.60.20](https://github.com/Konecos/aio-coding-hub/compare/aio-coding-hub-v0.60.19...aio-coding-hub-v0.60.20) (2026-09-28)
 
 
