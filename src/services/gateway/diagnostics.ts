@@ -23,6 +23,16 @@ export function diagnosticsEvents(traceId: string) {
   });
 }
 
+export function diagnosticsSaveBody(traceId: string, eventId: string, path: string) {
+  return invokeGeneratedIpc<null, boolean>({
+    title: "保存通信正文失败",
+    cmd: "gateway_diagnostics_save_body",
+    nullResultBehavior: "return_fallback",
+    fallback: true,
+    invoke: () => commands.gatewayDiagnosticsSaveBody(traceId, eventId, path),
+  });
+}
+
 export function diagnosticsConfigure(enabled: boolean, retentionDays: number) {
   if (!Number.isInteger(retentionDays) || retentionDays < 1 || retentionDays > 365) {
     return Promise.reject(new Error("驻留时间必须为 1–365 天的整数"));

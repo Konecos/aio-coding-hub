@@ -13,6 +13,7 @@ import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
 import { Input } from "../../ui/Input";
 import { Switch } from "../../ui/Switch";
+import { DiagnosticBody } from "./DiagnosticBody";
 
 const PHASE_LABELS: Record<string, string> = {
   client_request: "客户端 → 网关",
@@ -271,7 +272,7 @@ export function DiagnosticCommunicationDialog({
               </p>
             )}
             {events.data?.map((event) => (
-              <CommunicationEvent key={event.id} event={event} />
+              <CommunicationEvent key={event.id} event={event} traceId={traceId!} />
             ))}
           </div>
         </div>
@@ -280,7 +281,7 @@ export function DiagnosticCommunicationDialog({
   );
 }
 
-function CommunicationEvent({ event }: { event: DiagnosticEvent }) {
+function CommunicationEvent({ event, traceId }: { event: DiagnosticEvent; traceId: string }) {
   return (
     <details open className="rounded-lg border p-3 text-xs">
       <summary className="cursor-pointer font-semibold">
@@ -290,13 +291,8 @@ function CommunicationEvent({ event }: { event: DiagnosticEvent }) {
         {event.truncated ? " · 内容已截断或缺失" : ""}
       </summary>
       {event.note && <p className="mt-2 text-amber-600">{event.note}</p>}
-      {event.body_encoding === "base64" && (
-        <p className="mt-2 text-muted-foreground">二进制 / 压缩内容，以 Base64 显示。</p>
-      )}
       <pre className="mt-2 whitespace-pre-wrap break-all font-mono">{event.metadata}</pre>
-      <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-all border-t pt-2 font-mono">
-        {event.body || "（无正文）"}
-      </pre>
+      <DiagnosticBody event={event} traceId={traceId} />
     </details>
   );
 }

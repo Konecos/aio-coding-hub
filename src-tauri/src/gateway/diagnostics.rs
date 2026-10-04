@@ -201,9 +201,10 @@ impl Store {
             .query_map([trace_id], |r| {
                 let bytes: Vec<u8> = r.get(4)?;
                 let bytes_seen: u32 = r.get(5)?;
-                let binary = bytes
-                    .iter()
-                    .any(|b| *b < 0x20 && !matches!(*b, b'\n' | b'\r' | b'\t'));
+                let binary = std::str::from_utf8(&bytes).is_err()
+                    || bytes
+                        .iter()
+                        .any(|b| *b < 0x20 && !matches!(*b, b'\n' | b'\r' | b'\t'));
                 let (body, body_encoding) = if binary {
                     (
                         base64::engine::general_purpose::STANDARD.encode(&bytes),
@@ -419,6 +420,31 @@ pub(crate) fn events(trace: String) -> Result<Vec<DiagnosticEvent>, String> {
         ReadResult::Events(e) => Ok(e),
         _ => unreachable!(),
     }
+}
+
+pub(crate) fn save_body(trace: String, event_id: String, path: String) -> Result<(), String> {
+    if event_id.is_empty() || event_id.len() > 256 {
+        return Err("SEC_INVALID_INPUT: invalid event_id".into());
+    }
+    let event = events(trace)?
+        .into_iter()
+        .find(|event| event.id == event_id)
+        .ok_or_else(|| "通信内容已被清理，请刷新后重试".to_string())?;
+    write_body(&event, Path::new(&path))
+}
+
+fn write_body(event: &DiagnosticEvent, path: &Path) -> Result<(), String> {
+    if !path.is_absolute() {
+        return Err("SEC_INVALID_INPUT: 正文保存路径必须为绝对路径".into());
+    }
+    let bytes = if event.body_encoding == "base64" {
+        base64::engine::general_purpose::STANDARD
+            .decode(&event.body)
+            .map_err(|error| format!("正文编码无效：{error}"))?
+    } else {
+        event.body.as_bytes().to_vec()
+    };
+    std::fs::write(path, bytes).map_err(|error| format!("保存通信正文失败：{error}"))
 }
 
 pub(crate) fn configure(enabled: bool, days: u32) -> Result<(), String> {

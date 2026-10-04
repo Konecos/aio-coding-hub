@@ -5,6 +5,7 @@ import {
   diagnosticsConfigure,
   diagnosticsEvents,
   diagnosticsSnapshot,
+  diagnosticsSaveBody,
 } from "../diagnostics";
 
 vi.mock("../../../generated/bindings", () => ({
@@ -13,6 +14,7 @@ vi.mock("../../../generated/bindings", () => ({
     gatewayDiagnosticsClear: vi.fn(),
     gatewayDiagnosticsSnapshot: vi.fn(),
     gatewayDiagnosticsEvents: vi.fn(),
+    gatewayDiagnosticsSaveBody: vi.fn(),
   },
 }));
 vi.mock("../../consoleLog", () => ({ logToConsole: vi.fn() }));
@@ -40,5 +42,20 @@ describe("diagnostics IPC", () => {
     vi.mocked(commands.gatewayDiagnosticsEvents).mockResolvedValue({ status: "ok", data: [] });
     await expect(diagnosticsEvents("trace")).resolves.toEqual([]);
     expect(commands.gatewayDiagnosticsEvents).toHaveBeenCalledWith("trace");
+  });
+
+  it("saves the selected captured event and surfaces a capture that has been cleared", async () => {
+    vi.mocked(commands.gatewayDiagnosticsSaveBody).mockResolvedValue({ status: "ok", data: null });
+    await expect(diagnosticsSaveBody("trace", "event", "D:\\body.bin")).resolves.toBe(true);
+    expect(commands.gatewayDiagnosticsSaveBody).toHaveBeenCalledWith(
+      "trace",
+      "event",
+      "D:\\body.bin"
+    );
+    vi.mocked(commands.gatewayDiagnosticsSaveBody).mockResolvedValue({
+      status: "error",
+      error: "通信内容已被清理，请刷新后重试",
+    });
+    await expect(diagnosticsSaveBody("trace", "event", "D:\\body.bin")).rejects.toThrow("已被清理");
   });
 });

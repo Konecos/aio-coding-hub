@@ -11,18 +11,22 @@ import {
   diagnosticsConfigure,
   diagnosticsEvents,
   diagnosticsSnapshot,
+  diagnosticsSaveBody,
   type DiagnosticSnapshot,
   type DiagnosticEvent,
 } from "../../../services/gateway/diagnostics";
 import { writeDesktopClipboardText } from "../../../services/desktop/clipboard";
+import { saveDesktopFilePath } from "../../../services/desktop/dialog";
 
 vi.mock("../../../services/gateway/diagnostics", () => ({
   diagnosticsSnapshot: vi.fn(),
   diagnosticsEvents: vi.fn(),
   diagnosticsConfigure: vi.fn(),
   diagnosticsClear: vi.fn(),
+  diagnosticsSaveBody: vi.fn(),
 }));
 vi.mock("../../../services/desktop/clipboard", () => ({ writeDesktopClipboardText: vi.fn() }));
+vi.mock("../../../services/desktop/dialog", () => ({ saveDesktopFilePath: vi.fn() }));
 
 function snapshot(): DiagnosticSnapshot {
   return {
@@ -169,13 +173,59 @@ describe("communication retention", () => {
       event({ truncated: true, body_encoding: "base64", body: "AAEC", note: "stream cancelled" }),
     ]);
     render(<DiagnosticCommunicationDialog open onOpenChange={vi.fn()} />, { wrapper });
-    await screen.findByText("AAEC");
+    await screen.findByText(/00000000\s+00 01 02/);
+    expect(screen.queryByText("AAEC")).not.toBeInTheDocument();
     expect(screen.getByText(/disk full/)).toBeInTheDocument();
     expect(screen.getByText(/已丢弃 2 条更新/)).toBeInTheDocument();
     expect(screen.getByText(/后续通信未驻留/)).toBeInTheDocument();
     expect(screen.getByText(/内容已截断或缺失/)).toBeInTheDocument();
     expect(screen.getByText(/Base64/)).toBeInTheDocument();
     expect(screen.getByText("stream cancelled")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Base64" }));
+    expect(screen.getByText("AAEC")).toBeInTheDocument();
+  });
+
+  it("switches binary views, copies the selected view and saves captured raw bytes", async () => {
+    const { wrapper } = setup();
+    vi.mocked(diagnosticsEvents).mockResolvedValue([
+      event({ body_encoding: "base64", body: "AAEC", bytes_seen: 3 }),
+    ]);
+    vi.mocked(saveDesktopFilePath).mockResolvedValue("D:\\capture.bin");
+    vi.mocked(diagnosticsSaveBody).mockResolvedValue(true);
+    render(<DiagnosticCommunicationDialog open onOpenChange={vi.fn()} />, { wrapper });
+    await screen.findByText(/00000000\s+00 01 02/);
+    fireEvent.click(screen.getByRole("button", { name: "Base64" }));
+    fireEvent.click(screen.getByRole("button", { name: "复制当前内容" }));
+    await waitFor(() => expect(writeDesktopClipboardText).toHaveBeenCalledWith("AAEC"));
+    fireEvent.click(screen.getByRole("button", { name: "十六进制" }));
+    expect(screen.queryByText("AAEC")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "保存原始正文" }));
+    await waitFor(() =>
+      expect(diagnosticsSaveBody).toHaveBeenCalledWith("trace-one", "one", "D:\\capture.bin")
+    );
+  });
+
+  it("does not save when the file dialog is cancelled", async () => {
+    const { wrapper } = setup();
+    vi.mocked(saveDesktopFilePath).mockResolvedValue(null);
+    render(<DiagnosticCommunicationDialog open onOpenChange={vi.fn()} />, { wrapper });
+    await screen.findByText("upstream failed");
+    fireEvent.click(screen.getByRole("button", { name: "保存原始正文" }));
+    await waitFor(() => expect(saveDesktopFilePath).toHaveBeenCalled());
+    expect(diagnosticsSaveBody).not.toHaveBeenCalled();
+  });
+
+  it("falls back to hex if a recognized image cannot be rendered", async () => {
+    const { wrapper } = setup();
+    vi.mocked(diagnosticsEvents).mockResolvedValue([
+      event({ body_encoding: "base64", body: "iVBORw0KGgo=", bytes_seen: 8 }),
+    ]);
+    render(<DiagnosticCommunicationDialog open onOpenChange={vi.fn()} />, { wrapper });
+    const image = await screen.findByRole("img", { name: "驻留通信图片预览" });
+    expect(image).toHaveAttribute("src", "data:image/png;base64,iVBORw0KGgo=");
+    fireEvent.error(image);
+    expect(screen.getByText(/图片预览失败/)).toBeInTheDocument();
+    expect(screen.getByText(/89 50 4e 47/)).toBeInTheDocument();
   });
 
   it("surfaces IPC read errors without pretending there is an empty capture", async () => {

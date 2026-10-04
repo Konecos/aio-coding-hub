@@ -76,6 +76,7 @@ macro_rules! generated_command_registry {
             gateway_status => crate::commands::gateway::gateway_status,
             gateway_diagnostics_snapshot => crate::commands::gateway::gateway_diagnostics_snapshot,
             gateway_diagnostics_events => crate::commands::gateway::gateway_diagnostics_events,
+            gateway_diagnostics_save_body => crate::commands::gateway::gateway_diagnostics_save_body,
             gateway_diagnostics_configure => crate::commands::gateway::gateway_diagnostics_configure,
             gateway_diagnostics_clear => crate::commands::gateway::gateway_diagnostics_clear,
             gateway_check_port_available => crate::commands::gateway::gateway_check_port_available,

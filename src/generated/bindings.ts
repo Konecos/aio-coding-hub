@@ -508,6 +508,21 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async gatewayDiagnosticsSaveBody(
+    traceId: string,
+    eventId: string,
+    path: string
+  ): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("gateway_diagnostics_save_body", { traceId, eventId, path }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
   async gatewayDiagnosticsConfigure(
     enabled: boolean,
     retentionDays: number

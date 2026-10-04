@@ -70,6 +70,22 @@ pub(crate) async fn gateway_diagnostics_events(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn gateway_diagnostics_save_body(
+    app: tauri::AppHandle,
+    trace_id: String,
+    event_id: String,
+    path: String,
+) -> Result<(), String> {
+    crate::blocking::run("diagnostics_save_body", move || {
+        gateway::diagnostics::init(&app)?;
+        gateway::diagnostics::save_body(trace_id, event_id, path)
+    })
+    .await
+    .map_err(Into::into)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn gateway_diagnostics_configure(
     app: tauri::AppHandle,
     enabled: bool,

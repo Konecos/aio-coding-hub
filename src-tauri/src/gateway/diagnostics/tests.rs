@@ -125,6 +125,36 @@ fn caps_bodies_and_preserves_binary_bytes_with_nuls() {
 }
 
 #[test]
+fn preserves_non_utf8_binary_and_exports_exact_retained_bytes() {
+    let store = enabled_store(Path::new(":memory:"));
+    seed(&store, "binary");
+    let bytes = vec![0xff, 0xfe, 0x41];
+    store
+        .capture(Message::Chunk(0, "binary-event".into(), bytes.clone(), 100))
+        .unwrap();
+    let event = &store.events("binary").unwrap()[0];
+    assert_eq!(event.body_encoding, "base64");
+    assert!(event.truncated);
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("body.bin");
+    write_body(event, &path).unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), bytes);
+    assert!(write_body(event, Path::new("relative.bin")).is_err());
+
+    seed(&store, "text");
+    store
+        .capture(Message::Chunk(
+            0,
+            "text-event".into(),
+            "中文".as_bytes().to_vec(),
+            6,
+        ))
+        .unwrap();
+    write_body(&store.events("text").unwrap()[0], &path).unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), "中文".as_bytes());
+}
+
+#[test]
 fn expires_by_configured_age_and_caps_trace_and_event_counts() {
     let mut store = enabled_store(Path::new(":memory:"));
     let now = now_ms();
