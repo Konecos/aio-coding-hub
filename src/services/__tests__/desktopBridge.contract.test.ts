@@ -6,6 +6,7 @@ const allowedRawTauriImportFiles = new Set([
   "generated/bindings.ts",
   "services/desktop/assetUrl.ts",
   "services/desktop/event.ts",
+  "services/desktop/runtime.ts",
   "services/desktop/updater.ts",
   "services/tauriInvoke.ts",
   "services/desktop/themeEvent.ts",

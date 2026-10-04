@@ -30,7 +30,7 @@ import { useContributionsForSlot } from "../../plugins/contributions/useActiveCo
 import { HostRenderedContribution } from "../../plugins/contributions/HostRenderedContribution";
 import type { ContributionCommandHandler } from "../../plugins/contributions/types";
 import { logToConsole } from "../../services/consoleLog";
-import { isTauri } from "@tauri-apps/api/core";
+import { isDesktopRuntime } from "../../services/desktop/runtime";
 import { Button } from "../../ui/Button";
 import { DiagnosticCommunicationDialog } from "./DiagnosticCommunication";
 
@@ -187,7 +187,7 @@ export function RequestLogDetailDialog({
         </div>
       ) : (
         <div className="space-y-3">
-          {isTauri() && (
+          {isDesktopRuntime() && (
             <Button size="sm" variant="secondary" onClick={() => setCommunicationOpen(true)}>
               查看驻留通信
             </Button>

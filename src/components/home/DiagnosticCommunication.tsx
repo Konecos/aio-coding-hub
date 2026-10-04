@@ -1,4 +1,3 @@
-import { isTauri } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -9,6 +8,7 @@ import {
 } from "../../query/diagnostics";
 import type { DiagnosticEvent } from "../../services/gateway/diagnostics";
 import { writeDesktopClipboardText } from "../../services/desktop/clipboard";
+import { isDesktopRuntime } from "../../services/desktop/runtime";
 import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
 import { Input } from "../../ui/Input";
@@ -27,7 +27,7 @@ function errorText(error: unknown) {
 }
 
 export function DiagnosticRetentionControl() {
-  return isTauri() ? <RetentionControl /> : null;
+  return isDesktopRuntime() ? <RetentionControl /> : null;
 }
 
 function RetentionControl() {
