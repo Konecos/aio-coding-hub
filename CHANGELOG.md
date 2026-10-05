@@ -1,5 +1,19 @@
 # Changelog
 
+## [100.61.0](https://github.com/Konecos/aio-coding-hub/compare/aio-coding-hub-v100.60.20...aio-coding-hub-v100.61.0) (2026-10-05)
+
+
+### Features
+
+* 优化驻留通信的二进制预览与原始正文保存 ([ffaf161](https://github.com/Konecos/aio-coding-hub/commit/ffaf161e9f0544e1130639ed63d1d34f1d230378))
+* 增加OAuth剩余额度阈值保护 ([4c7d291](https://github.com/Konecos/aio-coding-hub/commit/4c7d291526f0eb1d9bc033b1bd01739f6d7016c2))
+* 将驻留容量默认设为5GiB并支持配置和完整正文采集 ([f74d0e0](https://github.com/Konecos/aio-coding-hub/commit/f74d0e0012a911b9fe19620a0475e45676e64e13))
+
+
+### Bug Fixes
+
+* **deps:** 将动画构建插件归入开发依赖 ([ddba4c7](https://github.com/Konecos/aio-coding-hub/commit/ddba4c755858eaa892f68888d23a51c47dc33c12))
+
 ## [100.60.20](https://github.com/Konecos/aio-coding-hub/compare/aio-coding-hub-v100.61.0...aio-coding-hub-v100.60.20) (2026-10-04)
 
 
